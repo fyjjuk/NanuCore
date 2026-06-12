@@ -1,46 +1,50 @@
 #!/usr/bin/env python3
-"""Punto de entrada para NanuCore 3.0 con canales CLI y WebSocket."""
 import asyncio
+import sys
 from nanu.core.orchestrator import Orchestrator
 from nanu.core.channels.cli import CLIChannel
-from nanu.core.channels.websocket import WebSocketChannel
-from dotenv import load_dotenv
-
-load_dotenv()
 
 async def main():
-    print("🚀 Iniciando NanuCore 3.0...")
+    print("🚀 NanuCore 3.0")
     
-    orchestrator = Orchestrator(agents_dir="agents", data_dir="nanu/data")
-    await orchestrator.load_agents()
+    orch = Orchestrator(agents_dir="agents", data_dir="nanu/data")
+    await orch.load_agents()
     
-    if not orchestrator.agents:
-        print("❌ No se encontraron agentes.")
+    if not orch.agents:
+        print("❌ No hay agentes")
         return
     
-    # Iniciar WebSocket
-    ws_channel = WebSocketChannel(orchestrator, host="localhost", port=8765)
-    ws_task = asyncio.create_task(ws_channel.start())
-    await asyncio.sleep(0.5)
+    # Seleccionar agente
+    agent = await orch.select_agent_interactive()
+    if not agent:
+        return
     
-    # Iniciar CLI
-    cli_channel = CLIChannel(orchestrator)
-    try:
-        await cli_channel.run()
-    except KeyboardInterrupt:
-        print("\n👋 Interrupción recibida.")
-    finally:
-        print("🛑 Deteniendo WebSocket...")
-        await ws_channel.stop()
-        ws_task.cancel()
-        try:
-            await ws_task
-        except asyncio.CancelledError:
-            pass
-        print("👋 Hasta luego!")
+    print("\n" + "="*50)
+    
+    # Crear CLI con el agente seleccionado
+    cli = CLIChannel(orch)
+    cli.current_agent = agent
+    
+    # Verificar voz
+    if agent.config.get('voice', {}).get('enabled', False):
+        from nanu.core.channels.voice import VoiceChannel
+        voice = VoiceChannel(agent)
+        
+        # Ejecutar ambos canales
+        cli_task = asyncio.create_task(cli.run())
+        voice_task = asyncio.create_task(voice.run())
+        
+        # Esperar a que CLI termine (por /exit)
+        await cli_task
+        
+        # Detener voz
+        voice.stop()
+        await voice_task
+    else:
+        await cli.run()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n👋 Saliendo...")
+        print("\n👋 Hasta luego")

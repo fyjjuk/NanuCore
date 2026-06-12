@@ -1,7 +1,6 @@
 """Canal CLI interactivo para NanuCore (asíncrono)."""
 import asyncio
 import os
-import sys
 from typing import Optional
 from nanu.core.orchestrator import Orchestrator
 from nanu.core.pipeline import Pipeline
@@ -11,25 +10,26 @@ class CLIChannel:
         self.orchestrator = orchestrator
         self.current_agent = None
         self.pipeline = Pipeline(event_bus=orchestrator.event_bus)
-        self.running = False
+        self.running = True
+        self._exit_requested = False
     
     async def _ainput(self, prompt: str) -> str:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, lambda: input(prompt))
     
     async def run(self):
-        self.current_agent = await self.orchestrator.select_agent_interactive()
-        if not self.current_agent:
-            print("👋 Saliendo...")
-            return
+        if self.current_agent is None:
+            self.current_agent = await self.orchestrator.select_agent_interactive()
+            if not self.current_agent:
+                self.running = False
+                return
         
         print(f"[+] Agente Activo: {self.current_agent.name} ({self.current_agent.id})")
         print("[+] Escribe '/exit' para salir, '/help' para ayuda.\n")
         
-        self.running = True
         session_key = f"cli_{self.current_agent.id}"
         
-        while self.running:
+        while self.running and not self._exit_requested:
             try:
                 user_input = await self._ainput(f"\n[{self.current_agent.id}] > ")
                 if not user_input:
@@ -38,8 +38,9 @@ class CLIChannel:
                 if user_input.startswith('/'):
                     result = await self._handle_slash_command(user_input)
                     if result == "EXIT":
+                        self._exit_requested = True
                         print("👋 ¡Hasta luego!")
-                        return
+                        break
                     if result:
                         print(result)
                     continue
@@ -47,6 +48,11 @@ class CLIChannel:
                 response, metadata = await self.pipeline.run(self.current_agent, user_input, session_key)
                 print(f"\n[Respuesta]\n{response}")
             
+            except EOFError:
+                break
+            except KeyboardInterrupt:
+                print("\n👋 ¡Hasta luego!")
+                break
             except Exception as e:
                 print(f"[-] Error: {e}")
         
@@ -92,3 +98,7 @@ Comandos disponibles:
                 return "Comando /agent no reconocido"
         else:
             return f"Comando desconocido: {cmd}. Usa /help."
+    
+    def stop(self):
+        self.running = False
+        self._exit_requested = True
