@@ -1,7 +1,0 @@
-route_id: "playlist_batalla"
-type: "script"
-description: "música de batalla, ambientación de combate, battle music, música épica de batalla"
-script_path: "tools/spotify_playlist.py"
-script_args:
-  playlist: "Epic Battle Music"
-gatekeeper_required: false

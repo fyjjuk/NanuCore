@@ -42,3 +42,8 @@ edge-tts>=6.0            # TTS natural (requiere conexión a internet)
 #   torch, transformers, sentence-transformers, chromadb
 # Si en el futuro activas el router semántico o RAG, añádelas.
 # ============================================================
+
+# Nuevas dependencias para NanuCore 3.0
+aiohttp>=3.9.0
+cryptography>=41.0.0
+websockets>=12.0

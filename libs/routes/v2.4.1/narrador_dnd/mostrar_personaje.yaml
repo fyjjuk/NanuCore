@@ -1,8 +1,0 @@
-route_id: "mostrar_personaje"
-type: "script"
-description: "mostrar personaje,ver ficha,estado personaje"
-script_path: "tools/character_manager.py"
-script_args:
-  action: "show"
-  input: "{user_input}"
-gatekeeper_required: false

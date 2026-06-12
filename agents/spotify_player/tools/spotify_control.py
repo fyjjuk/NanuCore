@@ -1,16 +1,13 @@
+#!/usr/bin/env python3
 import subprocess
 import sys
 import json
 import shutil
 import time
 
-def check_playerctl():
-    """Verifica si playerctl está instalado y accesible."""
-    return shutil.which("playerctl") is not None
-
 def run_spotify_command(action: str) -> str:
-    """Ejecuta comandos de control de Spotify con reintentos."""
-    if not check_playerctl():
+    """Ejecuta comandos de control de Spotify."""
+    if not shutil.which("playerctl"):
         return "❌ 'playerctl' no está instalado. Instálalo con: sudo dnf install playerctl"
     
     max_retries = 2

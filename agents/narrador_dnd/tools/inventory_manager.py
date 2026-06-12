@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Gestión de inventarios por personaje usando archivos Markdown Table.
+Soporta extracción de nombre de personaje de frases naturales.
 """
 
 import os
@@ -29,6 +30,38 @@ def parse_inventory_table(content: str) -> List[Tuple[str, str, str, str, str]]:
                     cells.append('')
                 rows.append(tuple(cells[:5]))
     return rows
+
+def extract_character_name(user_input: str) -> str:
+    """Extrae el nombre del personaje de frases como 'añade item al inventario de Gandalf'"""
+    patterns = [
+        r'inventario de ([A-Za-z][A-Za-z0-9_]*)',
+        r'para ([A-Za-z][A-Za-z0-9_]*)',
+        r'a ([A-Za-z][A-Za-z0-9_]*)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, user_input, re.IGNORECASE)
+        if match:
+            return match.group(1)
+    # Si no se encuentra, asumir que la entrada es solo el nombre
+    return user_input.strip()
+
+def extract_item_name(user_input: str) -> str:
+    """Extrae el nombre del item de frases como 'añade poción de curación'"""
+    # Remover partes comunes
+    patterns = [
+        r'añade\s+(.+?)\s+(?:al inventario|para|a)',
+        r'agrega\s+(.+?)\s+(?:al inventario|para|a)',
+        r'nuevo item\s+(.+)',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, user_input, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    # Fallback: tomar la frase completa después del verbo
+    words = user_input.split()
+    if len(words) > 1 and words[0].lower() in ('añade', 'agrega'):
+        return ' '.join(words[1:])
+    return user_input
 
 def add_item(character_name: str, item: str, quantity: int = 1, 
              value: float = 0, weight: float = 0, notes: str = "") -> str:
@@ -78,10 +111,15 @@ def show_inventory(character_name: str) -> str:
 
 def run(input_data: Dict[str, Any]) -> Dict[str, Any]:
     action = input_data.get("action", "")
-    character = input_data.get("character", "")
+    # Si character es la frase completa, extraer nombre
+    raw_char = input_data.get("character", "")
+    character = extract_character_name(raw_char) if raw_char else ""
+    item = input_data.get("item", "")
+    # Si item es frase completa, extraer item
+    if item and len(item.split()) > 2:
+        item = extract_item_name(item)
     
     if action == "add":
-        item = input_data.get("item", "")
         qty = int(input_data.get("quantity", 1))
         val = float(input_data.get("value", 0))
         w = float(input_data.get("weight", 0))

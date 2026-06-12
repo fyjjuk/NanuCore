@@ -76,3 +76,13 @@ test_*.py
 diagnose_*.py
 *.wav
 *.mp3
+
+# NanuCore 3.0 específico
+nanu/data/
+workspace/
+*.jsonl
+*.db
+nanu/data/cache/
+nanu/data/sessions/
+nanu/data/vectors.db
+.repomix

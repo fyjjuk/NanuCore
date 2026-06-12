@@ -4,3 +4,4 @@ description: "status,estado,que suena"
 script_path: "tools/spotify_control.py"
 script_args:
   action: "status"
+gatekeeper_required: false

@@ -1,0 +1,17 @@
+id: "test_gatekeeper"
+name: "Gatekeeper Test"
+description: "Agente de prueba para verificar aprobación humana"
+workspace: "workspace/test_gatekeeper"
+short_term_memory_window: 3
+execution_mode: "exclusive"
+llm_provider:
+  name: "ollama"
+  model: "phi3:mini"
+  temperature: 0.1
+  max_tokens: 100
+tools: {}
+router_config:
+  mode: "keyword"
+  threshold: 0.2
+cache:
+  enabled: false

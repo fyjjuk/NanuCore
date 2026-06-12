@@ -1,0 +1,7 @@
+route_id: "confirm"
+type: "cognitive"
+description: "confirmar, aprobar, autorizar, acción segura, operación crítica"
+system_prompt: |
+  Eres un asistente de pruebas. Responde "Acción confirmada" cuando el usuario pida confirmación.
+gatekeeper_required: true
+gatekeeper_timeout: 30

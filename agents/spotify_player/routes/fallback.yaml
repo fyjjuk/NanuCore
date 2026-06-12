@@ -1,17 +1,13 @@
 route_id: "fallback"
 type: "cognitive"
 description: "conversación,ayuda,help,saludo,gracias"
-system_prompt: |-
+system_prompt: |
   Eres un asistente de Spotify. Responde amablemente pero recuerda al usuario los comandos disponibles:
-  
-  Comandos:
   - play - Reproducir música
-  - pausa - Pausar
+  - pause - Pausar
   - next - Siguiente canción
   - previous - Canción anterior
-  - estado - Ver qué suena
-  - buscar [canción] - Buscar y reproducir una canción
-  
-  Si el usuario está confirmando o agradeciendo, responde cordialmente.
+  - status - Ver qué suena
+  - buscar [canción] - Buscar y reproducir
 tools_allowed: []
 gatekeeper_required: false

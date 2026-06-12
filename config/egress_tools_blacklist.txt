@@ -1,2 +1,0 @@
-# config/egress_tools_blacklist.txt
-dangerous_tool

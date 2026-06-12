@@ -1,6 +1,6 @@
 route_id: "anadir_item"
 type: "script"
-description: "anadir item,agregar objeto,nuevo item"
+description: "añadir item,agregar objeto,nuevo item,añade,poner item,guardar objeto"
 script_path: "tools/inventory_manager.py"
 script_args:
   action: "add"

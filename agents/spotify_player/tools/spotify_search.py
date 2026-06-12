@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-"""
-Búsqueda en Spotify.
-"""
-
 import subprocess
 import sys
 import json
 import shutil
 import urllib.parse
-
 
 def search_and_play(query: str) -> str:
     """Busca y reproduce una canción o artista en Spotify."""
@@ -35,22 +30,12 @@ def search_and_play(query: str) -> str:
     except Exception as e:
         return f"❌ Error: {str(e)}"
 
-
-def run(input_data):
-    """Punto de entrada para la herramienta."""
-    if isinstance(input_data, dict):
-        query = input_data.get("query", "")
-    else:
-        query = str(input_data)
-    
-    return search_and_play(query)
-
-
-if __name__ == "__main__":
+def main():
     if len(sys.argv) > 1:
         try:
             args = json.loads(sys.argv[1])
-            result = run(args)
+            query = args.get("query", "")
+            result = search_and_play(query)
             print(result)
         except:
             query = " ".join(sys.argv[1:])
@@ -58,3 +43,6 @@ if __name__ == "__main__":
             print(result)
     else:
         print("❌ Se requiere una consulta")
+
+if __name__ == "__main__":
+    main()

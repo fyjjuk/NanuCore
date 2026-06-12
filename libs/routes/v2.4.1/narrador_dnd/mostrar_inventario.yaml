@@ -1,8 +1,0 @@
-route_id: "mostrar_inventario"
-type: "script"
-description: "mostrar inventario,ver inventario,que tenemos"
-script_path: "tools/inventory_manager.py"
-script_args:
-  action: "show"
-  character: "{user_input}"
-gatekeeper_required: false
