@@ -1,0 +1,7 @@
+route_id: "playlist_taberna"
+type: "script"
+description: "música de taberna, ambientación de taberna, tavern music, taberna"
+script_path: "tools/spotify_playlist.py"
+script_args:
+  playlist: "Tavern Music"
+gatekeeper_required: false

@@ -1,0 +1,41 @@
+id: "narrador_dnd"
+name: "Narrador de D&D - Director de Juego"
+description: "Director de juego con espacio de trabajo propio. Gestiona personajes, inventarios y campañas."
+short_term_memory_window: 20
+execution_mode: "parallel"
+llm_provider:
+  name: "ollama"
+  model: "llama3.2:3b"
+  temperature: 0.7
+  max_tokens: 4096
+rag_config:
+  enabled: true
+  namespace: "dnd_lore"
+  top_k: 5
+  similarity_threshold: 0.7
+tools:
+  native:
+    - name: "character_manager"
+      script: "tools/character_manager.py"
+      enabled: true
+    - name: "inventory_manager"
+      script: "tools/inventory_manager.py"
+      enabled: true
+    - name: "campaign_manager"
+      script: "tools/campaign_manager.py"
+      enabled: true
+    - name: "spotify_playlist"
+      script: "tools/spotify_playlist.py"
+      enabled: true
+router_config:
+  mode: "hybrid"
+  model: "phi3:mini"
+  threshold: 0.3
+sanitizer_config:
+  enabled: true
+  use_llm: false
+
+voice:
+  enabled: true
+  provider: edge
+  voice_id: "es-ES-AlvaroNeural"

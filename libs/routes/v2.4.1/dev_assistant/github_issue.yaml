@@ -1,0 +1,14 @@
+route_id: "github_issue"
+type: "cognitive"
+description: "crear issue, listar issues, github issue, reportar bug, feature request"
+system_prompt: |-
+  Eres un asistente de gestión de proyectos. Ayuda a crear issues de GitHub bien estructurados:
+  - Título descriptivo
+  - Descripción detallada del problema/solicitud
+  - Pasos para reproducir (si es bug)
+  - Comportamiento esperado vs actual
+  - Contexto adicional (logs, screenshots)
+  Usa un formato claro y accionable.
+tools_allowed:
+  - native:github_repo
+gatekeeper_required: false

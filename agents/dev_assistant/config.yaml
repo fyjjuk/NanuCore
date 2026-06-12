@@ -1,0 +1,32 @@
+id: "dev_assistant"
+name: "Developer Assistant"
+description: "Asistente de desarrollo con GitHub integration y code review."
+short_term_memory_window: 10
+execution_mode: "parallel"
+llm_provider:
+  name: "ollama"
+  model: "llama3.2:3b"
+  temperature: 0.3
+  max_tokens: 4096
+rag_config:
+  enabled: false
+tools:
+  native:
+    - name: "github_manager"
+      script: "tools/github_manager.py"
+      enabled: true
+    - name: "code_manager"
+      script: "tools/code_manager.py"
+      enabled: true
+router_config:
+  mode: "hybrid"
+  model: "phi3:mini"
+  threshold: 0.3
+sanitizer_config:
+  enabled: true
+  use_llm: false
+
+voice:
+  enabled: true
+  provider: edge
+  voice_id: "es-MX-JorgeNeural"

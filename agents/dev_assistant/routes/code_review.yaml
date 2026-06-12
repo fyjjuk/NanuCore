@@ -1,0 +1,13 @@
+route_id: "code_review"
+type: "cognitive"
+description: "revisar código, code review, analizar código, revisar sintaxis, sugerir mejoras"
+system_prompt: |-
+  Eres un revisor de código experto. Analiza el código proporcionado y ofrece:
+  - Posibles bugs o vulnerabilidades
+  - Mejoras de rendimiento
+  - Adherencia a buenas prácticas
+  - Sugerencias de refactorización
+  Sé constructivo y específico en tus sugerencias.
+tools_allowed:
+  - native:code_review
+gatekeeper_required: false

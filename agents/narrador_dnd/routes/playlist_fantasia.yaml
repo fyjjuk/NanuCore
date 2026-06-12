@@ -1,0 +1,7 @@
+route_id: "playlist_fantasia"
+type: "script"
+description: "música de fantasía, música fantástica, ambientación de fantasía, fantasy music"
+script_path: "tools/spotify_playlist.py"
+script_args:
+  playlist: "Fantasy Medieval Music"
+gatekeeper_required: false

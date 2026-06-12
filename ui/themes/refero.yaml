@@ -1,0 +1,23 @@
+name: "Refero Dark"
+description: "Default theme for FerdoNAN inspired by Refero"
+colors:
+  primary: "#6C63FF"
+  success: "#4CAF50"
+  error: "#F44336"
+  warning: "#FFC107"
+  info: "#2196F3"
+badges:
+  agent: "[🤖]"
+  user: "[👤]"
+  dnd: "[🎲 D&D]"
+  spotify: "[🎵]"
+  linux: "[🐧]"
+  rag: "[📚]"
+  gatekeeper: "[🛡️]"
+  streaming: "[📡]"
+  warning: "[⚠️]"
+  error: "[❌]"
+console:
+  use_emoji: true
+  use_colors: true
+  compact_mode: false

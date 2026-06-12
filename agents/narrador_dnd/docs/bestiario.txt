@@ -1,0 +1,2 @@
+# Bestiario de ejemplo
+Dragón rojo: CR 17, aliento de fuego 15d6.

@@ -1,0 +1,78 @@
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# Archivos de configuración sensible
+.env
+.env.local
+config/local.yaml
+
+# Logs y archivos temporales
+logs/
+*.log
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+*.tmp
+*.temp
+
+# Backups y archivos de respaldo
+backups/
+*.bak
+*.orig
+*.backup
+*~
+
+# Archivos de caché
+cache/
+*.cache
+*.db
+*.sqlite3
+
+# Documentación generada
+docs/build/
+docs/source/_build/
+*.inv
+
+# Archivos de salida de herramientas
+repomix-output.xml
+ferdonan-repomix.md
+ferdonan_export.txt
+repomix.config.json
+
+# Modelos de Vosk (binarios grandes) - se descargan mediante script
+models/vosk/vosk-model-*/
+models/vosk/*.zip
+
+# Carpetas de datos generados
+data/rag_storage/
+data/piper_voices/
+workspace/
+
+# Archivos de código temporales
+*.swp
+*.swo
+*.swn
+
+# Ejecutables y scripts compilados
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Archivos de proyecto específicos
+.vscode/
+.idea/
+*.code-workspace
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de prueba
+test_*.py
+diagnose_*.py
+*.wav
+*.mp3

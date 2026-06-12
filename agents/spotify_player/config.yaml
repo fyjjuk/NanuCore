@@ -1,0 +1,31 @@
+id: "spotify_player"
+name: "Spotify Controller"
+description: "Control de Spotify con herramientas propias"
+short_term_memory_window: 3
+execution_mode: "parallel"
+llm_provider:
+  name: "ollama"
+  model: "phi3:mini"
+  temperature: 0.1
+  max_tokens: 50
+rag_config:
+  enabled: false
+tools:
+  native:
+    - name: "spotify_control"
+      script: "tools/spotify_control.py"
+      enabled: true
+    - name: "spotify_search"
+      script: "tools/spotify_search.py"
+      enabled: true
+router_config:
+  mode: "hybrid"
+  model: "phi3:mini"
+  threshold: 0.3
+cache:
+  enabled: false
+
+voice:
+  enabled: true
+  provider: edge
+  voice_id: "es-ES-ElviraNeural"

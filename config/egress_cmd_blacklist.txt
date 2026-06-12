@@ -1,0 +1,2 @@
+# config/egress_cmd_blacklist.txt
+rm

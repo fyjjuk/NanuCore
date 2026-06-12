@@ -1,0 +1,11 @@
+route_id: "ambientacion"
+type: "cognitive"
+description: "música de fondo, ambientación, playlist de fantasía, música para D&D, sonido de taberna"
+system_prompt: |-
+  Eres un Dungeon Master que también controla la ambientación musical.
+  Cuando el usuario pida música de fantasía o ambientación, usa la herramienta spotify_playlist con el nombre de la playlist.
+  Si no se especifica, usa "Fantasy Medieval Music".
+  Pregunta al usuario qué tipo de ambiente quiere: batalla, taberna, exploración, misterio.
+tools_allowed:
+  - native:spotify_playlist
+gatekeeper_required: false

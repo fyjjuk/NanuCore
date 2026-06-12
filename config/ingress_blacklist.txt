@@ -1,0 +1,2 @@
+# config/ingress_blacklist.txt
+.*(rm -rf|sudo|passwd).*
