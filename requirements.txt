@@ -1,49 +1,49 @@
 # ============================================================
-# Nanu Core – Dependencias esenciales (Python 3.11)
+# NanuCore 3.0 – Dependencias esenciales (Python 3.11+)
 # ============================================================
 
 # ---------- Core del sistema ----------
-pydantic>=2.6            # Modelado de datos (agentes, rutas)
+pydantic>=2.6            # Modelado de datos
 pyyaml>=6.0              # Configuración YAML
 python-dotenv>=1.0       # Variables de entorno
-python-json-logger>=2.0  # Logs estructurados
-requests>=2.31           # Cliente HTTP (LLM providers, APIs)
-psutil>=5.9              # Información del sistema
+requests>=2.31           # Cliente HTTP
+aiohttp>=3.9.0           # Cliente HTTP asíncrono (Ollama)
+
+# ---------- Seguridad ----------
+cryptography>=41.0.0     # Cifrado AES-256-GCM para credenciales
+
+# ---------- Memoria y persistencia ----------
+# SQLite viene con Python, no requiere instalación
 
 # ---------- CLI y UI ----------
 prompt_toolkit>=3.0      # Selector interactivo de agentes
-rich>=13.0               # Formato mejorado para consola
 
 # ---------- Proveedores LLM ----------
-groq>=0.5                # Cliente Groq (LLaMA, Mixtral)
-google-generativeai>=0.5 # Cliente Gemini (API)
-# Nota: Ollama se usa mediante requests (sin paquete adicional)
+# Ollama se usa mediante aiohttp (sin paquete adicional)
 
 # ---------- Herramientas de agentes ----------
 pandas>=2.0              # Manipulación de datos (inventarios Excel)
 openpyxl>=3.1            # Lectura/escritura de Excel
 python-docx>=1.0         # Lectura de documentos Word
-beautifulsoup4>=4.12     # Web scraping (para futuras herramientas)
+beautifulsoup4>=4.12     # Web scraping
 lxml>=4.9                # Parser XML/HTML
 
 # ---------- Integraciones externas ----------
-spotipy>=2.26            # Control y búsqueda en Spotify
 PyGithub>=2.0            # API de GitHub (listar repos, issues)
+# Nota: Spotify se controla con playerctl (comando del sistema)
 
-# ---------- Asistente de voz (opcional pero funcional) ----------
-vosk>=0.3                # STT offline (español/inglés)
-sounddevice>=0.4         # Grabación de micrófono
-evdev>=1.6               # Captura de teclas (hotkey) en Linux
-edge-tts>=6.0            # TTS natural (requiere conexión a internet)
-# Requiere además el paquete del sistema: mpg123 (instalar con sudo dnf install mpg123)
+# ---------- Asistente de voz (opcional) ----------
+# vosk>=0.3              # STT offline (requiere descargar modelo)
+# sounddevice>=0.4       # Grabación de micrófono
+# evdev>=1.6             # Captura de teclas en Linux
+# edge-tts>=6.0          # TTS natural (requiere mpg123)
+
+# ---------- WebSocket ----------
+websockets>=12.0         # Servidor/cliente WebSocket
 
 # ============================================================
-# Dependencias eliminadas (no usadas actualmente):
-#   torch, transformers, sentence-transformers, chromadb
-# Si en el futuro activas el router semántico o RAG, añádelas.
+# Notas:
+# - sentence-transformers, chromadb, torch ya no son necesarios
+# - El RAG ahora usa SQLite FTS5 (nativo de Python)
+# - La caché es en disco con JSON
 # ============================================================
-
-# Nuevas dependencias para NanuCore 3.0
-aiohttp>=3.9.0
-cryptography>=41.0.0
-websockets>=12.0
