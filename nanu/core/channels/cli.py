@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 from nanu.core.orchestrator import Orchestrator
 from nanu.core.pipeline import Pipeline
-from nanu.core.corrections import corrector
+from nanu.core.audio.corrections import corrector
 
 class CLIChannel:
     def __init__(self, orchestrator: Orchestrator, agent=None):

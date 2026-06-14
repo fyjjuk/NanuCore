@@ -11,7 +11,7 @@ from nanu.core.events.bus import EventBus
 from nanu.core.events.hooks import HookManager
 from nanu.core.cache import DiskCache
 from nanu.core.providers import create_llm_router
-from nanu.core.corrections import corrector
+from nanu.core.audio.corrections import corrector
 
 class Pipeline:
     def __init__(self, event_bus: Optional[EventBus] = None, llm_config: Optional[Dict] = None):
