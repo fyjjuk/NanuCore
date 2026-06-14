@@ -1,7 +1,0 @@
-route_id: "previous"
-type: "script"
-description: "previous,anterior,atras"
-script_path: "tools/spotify_control.py"
-script_args:
-  action: "previous"
-gatekeeper_required: false

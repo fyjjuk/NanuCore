@@ -1,0 +1,6 @@
+route_id: "play"
+type: "script"
+description: "play,reproducir,reproduce,reanudar"
+script_path: "tools/control.py"
+script_args:
+  action: "play"

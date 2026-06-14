@@ -1,7 +1,0 @@
-route_id: "next"
-type: "script"
-description: "next,siguiente,saltar"
-script_path: "tools/spotify_control.py"
-script_args:
-  action: "next"
-gatekeeper_required: false

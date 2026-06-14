@@ -1,0 +1,6 @@
+route_id: "next"
+type: "script"
+description: "next,siguiente,saltar,pasar"
+script_path: "tools/control.py"
+script_args:
+  action: "next"

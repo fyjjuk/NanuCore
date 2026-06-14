@@ -1,6 +1,0 @@
-route_id: "open"
-type: "script"
-description: "open,abrir,iniciar"
-script_path: "tools/spotify_control.py"
-script_args:
-  action: "open"

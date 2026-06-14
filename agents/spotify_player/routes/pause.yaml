@@ -1,7 +1,0 @@
-route_id: "pause"
-type: "script"
-description: "pause,pausar,stop,detener,pausa"
-script_path: "tools/spotify_control.py"
-script_args:
-  action: "pause"
-gatekeeper_required: false

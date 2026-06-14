@@ -1,0 +1,18 @@
+route_id: "buscar"
+type: "cognitive"
+description: "buscar,busca,reproduce,pon,toca,quiero escuchar"
+system_prompt: |
+  Eres un extractor de consultas. Analiza la frase y responde SOLO con la consulta limpia.
+  Elimina palabras como "busca", "reproduce", "pon", "toca", "la canción", "música de".
+  Ejemplos:
+  - "busca bohemian rhapsody" → bohemian rhapsody
+  - "reproduce música de toby fox" → toby fox
+  - "pon la canción de los beatles" → beatles
+  Responde ÚNICAMENTE la consulta, sin comillas ni texto adicional.
+model_config:
+  model: "qwen2.5:0.5b"
+  temperature: 0.0
+  max_tokens: 50
+tools_allowed:
+  - search_track
+gatekeeper_required: false

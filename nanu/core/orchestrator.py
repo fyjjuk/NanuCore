@@ -4,11 +4,11 @@ from typing import Dict, Optional, List
 from nanu.core.agent import Agent
 from nanu.core.memory.jsonl import JSONLMemory
 from nanu.core.memory.vector import SQLiteVectorStore
-from nanu.core.providers.factory import create_llm_client
 from nanu.core.tools.registry import ToolRegistry
 from nanu.core.events.bus import EventBus
 from nanu.core.skills.loader import SkillLoader
 from nanu.core.security.gatekeeper import Gatekeeper
+from nanu.core.providers import create_llm_router
 
 class Orchestrator:
     def __init__(self, agents_dir: str = "agents", data_dir: str = "nanu/data"):
@@ -40,15 +40,9 @@ class Orchestrator:
             with open(config_path, 'r', encoding='utf-8') as f:
                 cfg = yaml.safe_load(f)
             
-            # Crear clientes LLM
-            llm_clients = {}
-            light_cfg = cfg.get('llm_provider', {}).copy()
-            light_cfg['model'] = light_cfg.get('light_model', light_cfg.get('model', 'phi3:mini'))
-            llm_clients['light'] = create_llm_client(light_cfg)
-            
-            heavy_cfg = cfg.get('llm_provider', {}).copy()
-            heavy_cfg['model'] = heavy_cfg.get('heavy_model', heavy_cfg.get('model', 'llama3.2:3b'))
-            llm_clients['heavy'] = create_llm_client(heavy_cfg)
+            # Crear router LLM para este agente
+            llm_config = cfg.get('llm', {})
+            llm_router = create_llm_router(llm_config)
             
             # Cargar herramientas nativas del agente
             tools = []
@@ -64,12 +58,11 @@ class Orchestrator:
             
             agent = Agent(
                 config_path=str(config_path),
-                llm_clients=llm_clients,
+                llm_router=llm_router,
                 tools=tools,
                 memory=self.memory,
                 vector_store=self.vector_store
             )
-            # Asignar gatekeeper al agente
             agent.gatekeeper = self.gatekeeper
             self.agents[agent.id] = agent
     

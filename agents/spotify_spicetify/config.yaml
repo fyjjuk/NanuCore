@@ -1,0 +1,48 @@
+id: "spotify_spicetify"
+name: "Spotify Spicetify"
+description: "Control avanzado de Spotify"
+workspace: "workspace/spotify_spicetify"
+short_term_memory_window: 5
+execution_mode: "exclusive"
+llm:
+  providers:
+    - type: "ollama"
+      name: "ollama"
+      model: "phi3:mini"
+      host: "http://localhost:11434"
+      temperature: 0.1
+      max_tokens: 50
+      timeout: 10
+    - type: "gemini"
+      name: "gemini"
+      model: "gemini-2.0-flash-exp"
+      temperature: 0.1
+      max_tokens: 100
+      timeout: 30
+    - type: "groq"
+      name: "groq"
+      model: "llama-3.3-70b-versatile"
+      temperature: 0.1
+      max_tokens: 100
+      timeout: 30
+tools:
+  native:
+    - name: "control"
+      script: "tools/control.py"
+      enabled: true
+    - name: "set_volume"
+      script: "tools/set_volume.py"
+      enabled: true
+    - name: "search_track"
+      script: "tools/search_track.py"
+      enabled: true
+router_config:
+  mode: "keyword"
+  threshold: 0.05
+cache:
+  enabled: true
+  ttl: 3600
+voice:
+  enabled: true
+  provider: edge
+  voice_id: "es-ES-ElviraNeural"

@@ -2,15 +2,16 @@
 import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from nanu.core.interfaces import LLMClient, Tool, MemoryStore, VectorStore
+from nanu.core.interfaces import Tool, MemoryStore, VectorStore
 from nanu.core.security.sandbox import WorkspaceSandbox
+from nanu.core.providers import LLMRouter
 
 class Agent:
-    def __init__(self, config_path: str, llm_clients: Dict[str, LLMClient], 
+    def __init__(self, config_path: str, llm_router: LLMRouter,
                  tools: List[Tool], memory: MemoryStore, vector_store: Optional[VectorStore] = None):
         self.config_path = Path(config_path)
         self._load_config()
-        self.llm_clients = llm_clients
+        self.llm_router = llm_router
         self.tools = {tool.name: tool for tool in tools}
         self.memory = memory
         self.vector_store = vector_store
@@ -24,8 +25,8 @@ class Agent:
         self.description = self.config.get('description', '')
         self.execution_mode = self.config.get('execution_mode', 'exclusive')
         self.short_term_memory_window = self.config.get('short_term_memory_window', 10)
-        self.llm_provider_config = self.config.get('llm_provider', {})
-        # Configuración de caché (objeto simple)
+        
+        # Configuración de caché
         cache_cfg = self.config.get('cache', {})
         class CacheConf: pass
         self.cache_config = CacheConf()

@@ -1,0 +1,20 @@
+route_id: "volumen_cognitive"
+type: "cognitive"
+description: "subir volumen,bajar volumen,cambiar volumen,poner volumen,aumentar volumen,disminuir volumen"
+system_prompt: |
+  Eres un extractor de números. Analiza la frase y responde EXACTAMENTE con:
+  <tool_call>set_volume value="NUMERO"</tool_call>
+  Donde NUMERO es el valor de volumen (0-100) o el delta (+10, -20).
+  Ejemplos:
+  - "sube el volumen a 50" → <tool_call>set_volume value="50"</tool_call>
+  - "baja el volumen al 30" → <tool_call>set_volume value="30"</tool_call>
+  - "sube el volumen" → <tool_call>set_volume value="10"</tool_call>
+  - "baja el volumen" → <tool_call>set_volume value="-10"</tool_call>
+  Responde SOLO con el tool call, nada más.
+model_config:
+  model: "qwen2.5:0.5b"
+  temperature: 0.0
+  max_tokens: 50
+tools_allowed:
+  - set_volume
+gatekeeper_required: false

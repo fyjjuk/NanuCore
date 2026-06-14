@@ -1,0 +1,6 @@
+route_id: "pause"
+type: "script"
+description: "pausa,pausar,parar,detener,stop"
+script_path: "tools/control.py"
+script_args:
+  action: "pause"

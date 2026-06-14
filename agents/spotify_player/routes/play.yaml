@@ -1,7 +1,0 @@
-route_id: "play"
-type: "script"
-description: "play,reproducir,start,reproducción"
-script_path: "tools/spotify_control.py"
-script_args:
-  action: "play"
-gatekeeper_required: false

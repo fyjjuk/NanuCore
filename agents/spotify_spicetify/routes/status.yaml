@@ -1,0 +1,6 @@
+route_id: "status"
+type: "script"
+description: "status,estado,que suena,que cancion,now playing"
+script_path: "tools/control.py"
+script_args:
+  action: "status"
