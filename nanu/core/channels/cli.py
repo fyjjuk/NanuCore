@@ -1,16 +1,19 @@
 """Canal CLI interactivo para NanuCore (asíncrono)."""
 import asyncio
 import os
+import shlex
+import json
 from pathlib import Path
 from typing import Optional
 from nanu.core.orchestrator import Orchestrator
 from nanu.core.pipeline import Pipeline
+from nanu.core.corrections import corrector
 
 class CLIChannel:
     def __init__(self, orchestrator: Orchestrator, agent=None):
         self.orchestrator = orchestrator
         self.current_agent = agent
-        self.pipeline = None  # Se inicializará en run() con el agente
+        self.pipeline = None
         self.running = False
     
     async def _ainput(self, prompt: str) -> str:
@@ -24,7 +27,6 @@ class CLIChannel:
                 print("👋 Saliendo...")
                 return
         
-        # Inicializar pipeline con la configuración LLM del agente
         llm_config = self.current_agent.config.get("llm", {})
         self.pipeline = Pipeline(event_bus=self.orchestrator.event_bus, llm_config=llm_config)
         
@@ -58,26 +60,34 @@ class CLIChannel:
         self.running = False
     
     async def _handle_slash_command(self, cmd_line: str) -> Optional[str]:
-        parts = cmd_line.split()
+        parts = shlex.split(cmd_line[1:])
+        if not parts:
+            return None
         cmd = parts[0].lower()
         
-        if cmd in ('/exit', '/quit', '/salir'):
+        if cmd in ('exit', 'quit', 'salir'):
             return "EXIT"
-        elif cmd == '/help':
+        
+        elif cmd == 'help':
             return """
 Comandos disponibles:
-  /exit, /quit, /salir - Salir del asistente
-  /agent list          - Listar agentes disponibles
-  /agent switch <id>   - Cambiar de agente
-  /agents              - Volver al selector interactivo de agentes
-  /routes              - Mostrar las rutas del agente activo
-  /clear               - Limpiar pantalla
-  /help                - Mostrar esta ayuda
+  /exit, /quit, /salir         - Salir del asistente
+  /agent list                  - Listar agentes disponibles
+  /agent switch <id>           - Cambiar de agente
+  /agents                      - Volver al selector interactivo de agentes
+  /routes                      - Mostrar las rutas del agente activo
+  /learn "original" "correcto" - Aprender corrección fonética
+  /list-corrections, /lc       - Listar correcciones guardadas
+  /export-corrections, /ec     - Exportar correcciones a archivo JSON
+  /clear                       - Limpiar pantalla
+  /help                        - Mostrar esta ayuda
 """
-        elif cmd == '/clear':
+        
+        elif cmd == 'clear':
             os.system('clear' if os.name == 'posix' else 'cls')
             return ""
-        elif cmd == '/agent':
+        
+        elif cmd == 'agent':
             if len(parts) < 2:
                 return "Uso: /agent list | /agent switch <agent_id>"
             sub = parts[1].lower()
@@ -92,7 +102,6 @@ Comandos disponibles:
                 new_agent = self.orchestrator.get_agent(agent_id)
                 if new_agent:
                     self.current_agent = new_agent
-                    # Recrear pipeline con nueva configuración
                     llm_config = self.current_agent.config.get("llm", {})
                     self.pipeline = Pipeline(event_bus=self.orchestrator.event_bus, llm_config=llm_config)
                     return f"✅ Cambiado al agente: {new_agent.name}"
@@ -100,7 +109,8 @@ Comandos disponibles:
                     return f"❌ Agente '{agent_id}' no encontrado"
             else:
                 return "Comando /agent no reconocido"
-        elif cmd == '/agents':
+        
+        elif cmd == 'agents':
             new_agent = await self.orchestrator.select_agent_interactive()
             if new_agent:
                 self.current_agent = new_agent
@@ -109,7 +119,8 @@ Comandos disponibles:
                 return f"✅ Cambiado al agente: {new_agent.name}"
             else:
                 return "❌ Selección cancelada, se mantiene el agente actual."
-        elif cmd == '/routes':
+        
+        elif cmd == 'routes':
             if not self.current_agent:
                 return "No hay agente seleccionado."
             routes_dir = Path(self.current_agent.config_path).parent / "routes"
@@ -126,5 +137,24 @@ Comandos disponibles:
             if not routes:
                 return "No se encontraron rutas."
             return "📋 Rutas disponibles:\n" + "\n".join(routes)
+        
+        elif cmd == 'learn':
+            if len(parts) < 3:
+                return "Uso: /learn \"original\" \"corregido\"\nEjemplo: /learn \"fado de down\" \"fallen down\""
+            original = parts[1]
+            corrected = parts[2]
+            corrector.add_correction(original, corrected)
+            return f"📝 Aprendida corrección: '{original}' → '{corrected}'"
+        
+        elif cmd in ('list-corrections', 'lc'):
+            return corrector.list_corrections()
+        
+        elif cmd in ('export-corrections', 'ec'):
+            export_path = Path('data/corrections/exported_map.json')
+            export_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(export_path, 'w', encoding='utf-8') as f:
+                json.dump(corrector.corrections, f, ensure_ascii=False, indent=2)
+            return f"📁 Correcciones exportadas a {export_path}"
+        
         else:
-            return f"Comando desconocido: {cmd}. Usa /help."
+            return f"Comando desconocido: /{cmd}. Usa /help."

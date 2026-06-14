@@ -11,6 +11,7 @@ from nanu.core.events.bus import EventBus
 from nanu.core.events.hooks import HookManager
 from nanu.core.cache import DiskCache
 from nanu.core.providers import create_llm_router
+from nanu.core.corrections import corrector
 
 class Pipeline:
     def __init__(self, event_bus: Optional[EventBus] = None, llm_config: Optional[Dict] = None):
@@ -27,7 +28,12 @@ class Pipeline:
     async def run(self, agent: Agent, user_input: str, session_key: str) -> Tuple[str, Dict[str, Any]]:
         context = {"agent": agent, "session_key": session_key}
         
-        processed_input = await self.hook_manager.run_pre_hooks(user_input, context)
+        # Aplicar correcciones fonéticas al input
+        corrected_input = corrector.correct(user_input)
+        if corrected_input != user_input:
+            print(f"🔧 Corrección aplicada: '{user_input}' → '{corrected_input}'")
+        
+        processed_input = await self.hook_manager.run_pre_hooks(corrected_input, context)
         sanitized = processed_input.strip()
         if not sanitized:
             return "No se detectó entrada.", {"route_id": "none", "model": "none"}
