@@ -1,0 +1,39 @@
+id: "test_agent"
+name: "Test Agent"
+description: "Agente de pruebas para verificar el router LLM"
+workspace: "workspace/test_agent"
+short_term_memory_window: 5
+execution_mode: "exclusive"
+llm:
+  providers:
+    # Mistral primero (más rápido)
+    - type: "mistral"
+      name: "mistral"
+      model: "mistral-small-latest"
+      temperature: 0.2
+      max_tokens: 100
+      timeout: 30
+    # OpenRouter segundo (respaldo)
+    - type: "openrouter"
+      name: "openrouter"
+      model: "meta-llama/llama-3.3-70b-instruct"
+      temperature: 0.1
+      max_tokens: 100
+      timeout: 30
+    # Ollama último (fallback local)
+    - type: "ollama"
+      name: "ollama"
+      model: "phi3:mini"
+      host: "http://localhost:11434"
+      temperature: 0.1
+      max_tokens: 50
+      timeout: 10
+tools:
+  native: []
+router_config:
+  mode: "keyword"
+  threshold: 0.05
+cache:
+  enabled: false
+voice:
+  enabled: false

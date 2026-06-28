@@ -13,16 +13,22 @@ llm:
       temperature: 0.1
       max_tokens: 50
       timeout: 10
-    - type: "gemini"
-      name: "gemini"
-      model: "gemini-2.0-flash-exp"
+    - type: "openrouter"
+      name: "openrouter"
+      model: "meta-llama/llama-3.3-70b-instruct"
       temperature: 0.1
       max_tokens: 100
       timeout: 30
-    - type: "groq"
-      name: "groq"
-      model: "llama-3.3-70b-versatile"
-      temperature: 0.1
+    - type: "cerebras"
+      name: "cerebras"
+      model: "llama3.3-70b"
+      temperature: 0.2
+      max_tokens: 100
+      timeout: 30
+    - type: "mistral"
+      name: "mistral"
+      model: "mistral-small-latest"
+      temperature: 0.2
       max_tokens: 100
       timeout: 30
 tools:

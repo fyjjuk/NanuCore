@@ -1,0 +1,5 @@
+route_id: "saludo"
+type: "cognitive"
+description: "saludo, hola, buenos días, buenas tardes, buenas noches"
+system_prompt: "Eres un asistente amable. Responde con un saludo corto y amigable."
+gatekeeper_required: false
