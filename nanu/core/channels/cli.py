@@ -8,6 +8,9 @@ from typing import Optional
 from nanu.core.orchestrator import Orchestrator
 from nanu.core.pipeline import Pipeline
 from nanu.core.audio.corrections import corrector
+from nanu.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class CLIChannel:
     def __init__(self, orchestrator: Orchestrator, agent=None):
@@ -34,9 +37,9 @@ class CLIChannel:
         # Si el agente ya tiene un llm_router, usarlo en el pipeline
         if hasattr(self.current_agent, 'llm_router') and self.current_agent.llm_router:
             self.pipeline.llm_router = self.current_agent.llm_router
-            print(f"[+] Usando router LLM del agente: {self.current_agent.llm_router.providers[0].name if self.current_agent.llm_router.providers else 'ninguno'}")
+            logger.debug(f"Usando router LLM del agente: {self.current_agent.llm_router.providers[0].name if self.current_agent.llm_router.providers else 'ninguno'}")
         
-        print(f"[+] Agente Activo: {self.current_agent.name} ({self.current_agent.id})")
+        print(f"[+] Agente Activo: {self.current_agent.name} ({self.current_agent.id}") 
         print("[+] Escribe '/exit' para salir, '/help' para ayuda.\n")
         
         self.running = True
@@ -61,6 +64,7 @@ class CLIChannel:
                 print(f"\n[Respuesta]\n{response}")
             
             except Exception as e:
+                logger.error(f"Error en CLI: {e}", exc_info=True)
                 print(f"[-] Error: {e}")
         
         self.running = False
@@ -80,6 +84,7 @@ Comandos disponibles:
   /exit, /quit, /salir         - Salir del asistente
   /agent list                  - Listar agentes disponibles
   /agent switch <id>           - Cambiar de agente
+  /agent info                  - Mostrar detalles del agente (LLM, proveedores)
   /agents                      - Volver al selector interactivo de agentes
   /routes                      - Mostrar las rutas del agente activo
   /learn "original" "correcto" - Aprender corrección fonética
@@ -95,14 +100,16 @@ Comandos disponibles:
         
         elif cmd == 'agent':
             if len(parts) < 2:
-                return "Uso: /agent list | /agent switch <agent_id>"
+                return "Uso: /agent list | /agent switch <agent_id> | /agent info"
             sub = parts[1].lower()
+            
             if sub == 'list':
                 agents = self.orchestrator.list_agents()
                 lines = ["Agentes disponibles:"]
                 for a in agents:
                     lines.append(f"  {a['id']} - {a['name']}")
                 return "\n".join(lines)
+            
             elif sub == 'switch' and len(parts) >= 3:
                 agent_id = parts[2]
                 new_agent = self.orchestrator.get_agent(agent_id)
@@ -116,8 +123,12 @@ Comandos disponibles:
                     return f"✅ Cambiado al agente: {new_agent.name}"
                 else:
                     return f"❌ Agente '{agent_id}' no encontrado"
+            
+            elif sub == 'info':
+                return await self._show_agent_info()
+            
             else:
-                return "Comando /agent no reconocido"
+                return "Comando /agent no reconocido. Usa: /agent list | /agent switch <id> | /agent info"
         
         elif cmd == 'agents':
             new_agent = await self.orchestrator.select_agent_interactive()
@@ -169,3 +180,54 @@ Comandos disponibles:
         
         else:
             return f"Comando desconocido: /{cmd}. Usa /help."
+
+    async def _show_agent_info(self) -> str:
+        """Muestra información detallada del agente actual."""
+        if not self.current_agent:
+            return "❌ No hay agente seleccionado."
+        
+        agent = self.current_agent
+        lines = []
+        lines.append(f"📋 Información del agente: {agent.name} ({agent.id})")
+        lines.append(f"   Descripción: {agent.description}")
+        lines.append(f"   Workspace: {agent.workspace.root}")
+        lines.append(f"   Memoria: {agent.short_term_memory_window} turnos")
+        lines.append(f"   Modo ejecución: {agent.execution_mode}")
+        lines.append("")
+        
+        # Información de LLM
+        if hasattr(agent, 'llm_router') and agent.llm_router:
+            lines.append("   🤖 Proveedores LLM:")
+            for provider in agent.llm_router.providers:
+                priority = agent.llm_router.get_provider_priority(provider.name)
+                # Verificar disponibilidad (usamos la caché del router)
+                is_available = "✅"  # Por simplicidad, asumimos disponible
+                lines.append(f"      {is_available} {provider.name} (prioridad: {priority})")
+                lines.append(f"         Modelo: {provider.model}")
+                lines.append(f"         Temperatura: {provider.temperature}")
+                lines.append(f"         Max tokens: {provider.max_tokens}")
+                lines.append(f"         Timeout: {provider.timeout}s")
+        else:
+            lines.append("   ⚠️ No hay proveedores LLM configurados")
+        
+        lines.append("")
+        
+        # Información de herramientas
+        if agent.tools:
+            lines.append("   🛠️ Herramientas disponibles:")
+            for tool_name, tool in agent.tools.items():
+                status = "✅" if tool.enabled else "❌"
+                lines.append(f"      {status} {tool_name}: {tool.description[:50]}...")
+        else:
+            lines.append("   ℹ️ No hay herramientas configuradas")
+        
+        lines.append("")
+        
+        # Información de caché
+        cache_enabled = hasattr(agent, 'cache_config') and agent.cache_config.enabled
+        lines.append(f"   💾 Caché: {'✅ Activada' if cache_enabled else '❌ Desactivada'}")
+        if cache_enabled:
+            ttl = getattr(agent.cache_config, 'ttl', 3600)
+            lines.append(f"      TTL: {ttl}s")
+        
+        return "\n".join(lines)

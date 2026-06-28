@@ -3,6 +3,9 @@ import json
 import re
 from pathlib import Path
 from typing import Dict, List, Optional
+from nanu.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class PhoneticCorrector:
     """Corrige interpretaciones erróneas del STT basado en un diccionario."""
@@ -34,8 +37,9 @@ class PhoneticCorrector:
                                 self.reverse_map[variant.lower()] = correct
                         elif isinstance(variants, str):
                             self.reverse_map[variants.lower()] = correct
+                logger.debug(f"Correcciones cargadas: {len(self.corrections)} entradas")
             except Exception as e:
-                print(f"Error cargando correcciones: {e}")
+                logger.error(f"Error cargando correcciones: {e}")
     
     def save(self):
         """Guarda el diccionario de correcciones."""
@@ -50,6 +54,7 @@ class PhoneticCorrector:
                 store_corrections[correct] = [variants]
         with open(corrections_path, 'w', encoding='utf-8') as f:
             json.dump({"corrections": store_corrections}, f, ensure_ascii=False, indent=2)
+        logger.debug("Correcciones guardadas")
     
     def correct(self, text: str) -> str:
         """Aplica correcciones al texto (soporta frases completas)."""
@@ -68,6 +73,8 @@ class PhoneticCorrector:
                 pattern = re.compile(re.escape(variant), re.IGNORECASE)
                 result = pattern.sub(correct, result)
         
+        if result != text:
+            logger.debug(f"Corrección aplicada: '{text}' → '{result}'")
         return result
     
     def add_correction(self, wrong: str, correct: str):
@@ -89,7 +96,7 @@ class PhoneticCorrector:
         # Actualizar reverse_map
         self.reverse_map[wrong_lower] = correct_lower
         self.save()
-        print(f"📝 Corrección guardada: '{wrong}' → '{correct}'")
+        logger.info(f"Corrección guardada: '{wrong}' → '{correct}'")
     
     def list_corrections(self) -> str:
         """Lista todas las correcciones guardadas."""

@@ -5,6 +5,9 @@ import os
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any
+from nanu.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class DiskCache:
     """Caché simple basada en archivos JSON con expiración por TTL."""
@@ -39,9 +42,11 @@ class DiskCache:
             # Verificar expiración (TTL en segundos)
             if 'expires_at' in data and data['expires_at'] < time.time():
                 path.unlink()  # Eliminar expirado
+                logger.debug(f"Cache expirado: {key[:16]}...")
                 return None
             return data.get('response')
-        except (json.JSONDecodeError, KeyError, OSError):
+        except (json.JSONDecodeError, KeyError, OSError) as e:
+            logger.error(f"Error leyendo caché {key[:16]}...: {e}")
             return None
     
     def set(self, agent_id: str, route_id: str, prompt: str, response: str, 
@@ -59,8 +64,9 @@ class DiskCache:
         try:
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            logger.debug(f"Cache guardado: {key[:16]}... (TTL: {ttl}s)")
         except OSError as e:
-            print(f"Error escribiendo caché: {e}")
+            logger.error(f"Error escribiendo caché {key[:16]}...: {e}")
     
     def invalidate(self, agent_id: Optional[str] = None, route_id: Optional[str] = None) -> None:
         """Invalida entradas de caché (todas, por agente, o por ruta)."""
@@ -69,10 +75,12 @@ class DiskCache:
             import shutil
             shutil.rmtree(self.cache_dir, ignore_errors=True)
             self.cache_dir.mkdir(parents=True, exist_ok=True)
+            logger.info("Caché invalidado completamente")
             return
         
         # Buscar archivos que contengan agent_id en la clave
         # Como las claves son hashes, no podemos filtrar fácilmente.
         # Una aproximación: almacenar metadatos separados o simplemente no implementar filtrado por ahora.
         # Por simplicidad, solo soportamos invalidación total.
+        logger.warning("Invalidación selectiva no implementada aún")
         raise NotImplementedError("Invalidación selectiva no implementada aún")
