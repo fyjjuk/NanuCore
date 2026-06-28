@@ -3,6 +3,9 @@ import re
 import yaml
 from typing import Dict, Any, Optional
 from nanu.core.agent import Agent
+from nanu.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class IntentRouter:
     def route(self, agent: Agent, user_input: str, threshold: float = 0.05) -> Optional[Dict[str, Any]]:
@@ -12,6 +15,7 @@ class IntentRouter:
         
         routes_dir = Path(agent.config_path).parent / "routes"
         if not routes_dir.exists():
+            logger.debug(f"No hay directorio de rutas para {agent.id}")
             return None
         
         for yaml_file in routes_dir.glob("*.yaml"):
@@ -34,7 +38,7 @@ class IntentRouter:
                         best_route = route
         
         if best_route and best_score >= threshold:
-            print(f"[DEBUG] Ruta: {best_route['route_id']} (score={best_score:.2f})")
+            logger.debug(f"Ruta seleccionada: {best_route['route_id']} (score={best_score:.2f})")
             return best_route
         
         # Fallback: si no hay match, usar primera ruta (comando) solo si el input no es vacío
@@ -44,6 +48,8 @@ class IntentRouter:
                 with open(yaml_file, 'r', encoding='utf-8') as f:
                     route = yaml.safe_load(f)
                     if route and route.get('route_id') == 'comando':
-                        print(f"[DEBUG] Fallback a comando (input: '{user_lower}')")
+                        logger.debug(f"Fallback a comando (input: '{user_lower}')")
                         return route
+        
+        logger.debug(f"No se encontró ruta para: '{user_input}'")
         return None

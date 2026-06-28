@@ -12,6 +12,9 @@ from nanu.core.events.hooks import HookManager
 from nanu.core.cache import DiskCache
 from nanu.core.providers import create_llm_router
 from nanu.core.audio.corrections import corrector
+from nanu.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class Pipeline:
     def __init__(self, event_bus: Optional[EventBus] = None, llm_config: Optional[Dict] = None):
@@ -31,7 +34,7 @@ class Pipeline:
         # Aplicar correcciones fonéticas al input
         corrected_input = corrector.correct(user_input)
         if corrected_input != user_input:
-            print(f"🔧 Corrección aplicada: '{user_input}' → '{corrected_input}'")
+            logger.info(f"Corrección fonética: '{user_input}' → '{corrected_input}'")
         
         processed_input = await self.hook_manager.run_pre_hooks(corrected_input, context)
         sanitized = processed_input.strip()
@@ -41,23 +44,27 @@ class Pipeline:
         await self.event_bus.publish("pipeline.sanitized", {"input": sanitized})
         
         if self._is_blocked(sanitized):
+            logger.warning(f"Entrada bloqueada por seguridad: '{sanitized}'")
             return "Entrada bloqueada por políticas de seguridad.", {"route_id": "blocked"}
         
         routed_input = await self.hook_manager.run_pre_route_hooks(sanitized, context)
         route = self.intent_router.route(agent, routed_input)
         
         if not route:
+            logger.debug(f"No se pudo determinar la intención para: '{routed_input}'")
             return "No se pudo determinar la intención.", {"route_id": "unknown"}
         
         route_id = await self.hook_manager.run_post_route_hooks(route['route_id'], routed_input, context)
         if route_id != route['route_id']:
             route = agent.get_route(route_id) or route
+            logger.debug(f"Ruta modificada por hook: {route_id}")
         
         await self.event_bus.publish("pipeline.routed", {"route_id": route['route_id']})
         
         if hasattr(agent, 'gatekeeper') and agent.gatekeeper:
             approved = await agent.gatekeeper.verify(route['route_id'], route, session_key, session_key)
             if not approved:
+                logger.info(f"Acción rechazada por Gatekeeper: {route['route_id']}")
                 return "Acción rechazada por Gatekeeper.", {"route_id": route['route_id'], "blocked": True}
         
         route_type = route.get('type', 'cognitive')
@@ -72,6 +79,7 @@ class Pipeline:
                     cached = self.cache.get(agent.id, route['route_id'], sanitized, system_prompt)
                 if cached:
                     response = cached
+                    logger.debug(f"Cache hit para {agent.id}/{route['route_id']}")
                     await self.event_bus.publish("pipeline.cache_hit", {"route_id": route['route_id']})
                 else:
                     response = await self._execute_cognitive(agent, route, sanitized)
@@ -82,11 +90,13 @@ class Pipeline:
                 response = await self._handle_tool_calls(agent, response)
             
             if self._is_egress_blocked(response):
+                logger.warning(f"Respuesta bloqueada por egress filter: {response[:100]}...")
                 response = "La respuesta fue bloqueada por políticas de seguridad."
             
             response = await self.hook_manager.run_post_hooks(response, context)
             
         except Exception as e:
+            logger.error(f"Error en pipeline: {e}", exc_info=True)
             await self.hook_manager.run_error_hooks(e, sanitized, context)
             return f"Error en pipeline: {e}", {"route_id": route['route_id'], "error": str(e)}
         
@@ -101,6 +111,7 @@ class Pipeline:
         blocked = ["rm -rf", "sudo", "passwd"]
         for pattern in blocked:
             if pattern in text.lower():
+                logger.debug(f"Bloqueo por patrón: {pattern}")
                 return True
         return False
     
@@ -108,6 +119,7 @@ class Pipeline:
         dangerous = ["rm", "curl", "wget"]
         for cmd in dangerous:
             if f" {cmd} " in f" {text} " or text.startswith(f"{cmd} "):
+                logger.debug(f"Egress bloqueado por comando: {cmd}")
                 return True
         return False
     
@@ -118,6 +130,7 @@ class Pipeline:
         agent_dir = Path(agent.config_path).parent
         full_script = agent_dir / script_path
         if not full_script.exists():
+            logger.warning(f"Script no encontrado: {full_script}")
             return f"Error: herramienta no encontrada: {script_path}"
         args = route.get('script_args', {})
         processed = {}
@@ -127,6 +140,7 @@ class Pipeline:
             else:
                 processed[k] = v
         try:
+            logger.debug(f"Ejecutando script: {full_script} con args: {processed}")
             result = subprocess.run(
                 ["python", str(full_script), json.dumps(processed)],
                 capture_output=True, text=True, timeout=30
@@ -134,8 +148,10 @@ class Pipeline:
             if result.returncode == 0:
                 return result.stdout.strip()
             else:
+                logger.warning(f"Script falló: {result.stderr}")
                 return f"Error: {result.stderr}"
         except Exception as e:
+            logger.error(f"Error ejecutando script: {e}")
             return f"Error ejecutando script: {e}"
     
     async def _execute_cognitive(self, agent: Agent, route: Dict, user_input: str) -> str:
@@ -152,9 +168,11 @@ class Pipeline:
         full_prompt = f"{context}\nUsuario: {user_input}\nAsistente:"
         
         try:
+            logger.debug(f"LLM request para {agent.id}: {full_prompt[:200]}...")
             response = await self.llm_router.generate(full_prompt, system_prompt)
             return response
         except Exception as e:
+            logger.error(f"Error generando respuesta: {e}")
             return f"Error generando respuesta: {e}"
     
     async def _handle_tool_calls(self, agent: Agent, response: str) -> str:
@@ -174,12 +192,15 @@ class Pipeline:
                 v = v[1:-1]
             args[k] = v
         
+        logger.debug(f"Tool call detectado: {tool_name} con args: {args}")
+        
         tool = agent.tools.get(tool_name)
         if tool and tool.enabled:
             try:
                 result = await tool.execute(args, workspace=agent.workspace)
                 return result
             except Exception as e:
+                logger.error(f"Error ejecutando tool {tool_name}: {e}")
                 return f"Error ejecutando {tool_name}: {e}"
         else:
             tool_script = None
