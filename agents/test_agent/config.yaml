@@ -6,23 +6,23 @@ short_term_memory_window: 5
 execution_mode: "exclusive"
 llm:
   providers:
-    # Mistral primero (más rápido)
     - type: "mistral"
       name: "mistral"
+      priority: 1                      # Mayor prioridad
       model: "mistral-small-latest"
       temperature: 0.2
       max_tokens: 100
       timeout: 30
-    # OpenRouter segundo (respaldo)
     - type: "openrouter"
       name: "openrouter"
+      priority: 2                      # Segundo en prioridad
       model: "meta-llama/llama-3.3-70b-instruct"
       temperature: 0.1
       max_tokens: 100
       timeout: 30
-    # Ollama último (fallback local)
     - type: "ollama"
       name: "ollama"
+      priority: 3                      # Fallback local
       model: "phi3:mini"
       host: "http://localhost:11434"
       temperature: 0.1

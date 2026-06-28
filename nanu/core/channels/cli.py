@@ -27,8 +27,14 @@ class CLIChannel:
                 print("👋 Saliendo...")
                 return
         
+        # Usar el llm_router del agente para el pipeline
         llm_config = self.current_agent.config.get("llm", {})
         self.pipeline = Pipeline(event_bus=self.orchestrator.event_bus, llm_config=llm_config)
+        
+        # Si el agente ya tiene un llm_router, usarlo en el pipeline
+        if hasattr(self.current_agent, 'llm_router') and self.current_agent.llm_router:
+            self.pipeline.llm_router = self.current_agent.llm_router
+            print(f"[+] Usando router LLM del agente: {self.current_agent.llm_router.providers[0].name if self.current_agent.llm_router.providers else 'ninguno'}")
         
         print(f"[+] Agente Activo: {self.current_agent.name} ({self.current_agent.id})")
         print("[+] Escribe '/exit' para salir, '/help' para ayuda.\n")
@@ -102,8 +108,11 @@ Comandos disponibles:
                 new_agent = self.orchestrator.get_agent(agent_id)
                 if new_agent:
                     self.current_agent = new_agent
+                    # Reutilizar el router del agente
                     llm_config = self.current_agent.config.get("llm", {})
                     self.pipeline = Pipeline(event_bus=self.orchestrator.event_bus, llm_config=llm_config)
+                    if hasattr(self.current_agent, 'llm_router') and self.current_agent.llm_router:
+                        self.pipeline.llm_router = self.current_agent.llm_router
                     return f"✅ Cambiado al agente: {new_agent.name}"
                 else:
                     return f"❌ Agente '{agent_id}' no encontrado"
@@ -116,6 +125,8 @@ Comandos disponibles:
                 self.current_agent = new_agent
                 llm_config = self.current_agent.config.get("llm", {})
                 self.pipeline = Pipeline(event_bus=self.orchestrator.event_bus, llm_config=llm_config)
+                if hasattr(self.current_agent, 'llm_router') and self.current_agent.llm_router:
+                    self.pipeline.llm_router = self.current_agent.llm_router
                 return f"✅ Cambiado al agente: {new_agent.name}"
             else:
                 return "❌ Selección cancelada, se mantiene el agente actual."

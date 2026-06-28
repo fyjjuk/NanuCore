@@ -17,14 +17,20 @@ class MistralClient(LLMClient):
         }
     
     async def available(self) -> bool:
-        """Verifica si la API key es válida."""
+        """Verifica si la API key es válida y el modelo está disponible."""
         if not self.api_key:
             return False
         try:
+            # Intentar listar modelos (menos costoso)
             url = f"{self.base_url}/models"
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=self.headers, timeout=5) as resp:
-                    return resp.status == 200
+                    if resp.status == 200:
+                        data = await resp.json()
+                        # Verificar que nuestro modelo esté en la lista
+                        models = [m['id'] for m in data.get('data', [])]
+                        return self.model in models
+                    return False
         except:
             return False
     

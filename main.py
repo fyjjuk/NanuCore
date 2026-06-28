@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 import asyncio
 import sys
+import os
+from dotenv import load_dotenv
+
+# Cargar variables de entorno ANTES de configurar logging
+load_dotenv('.env')
+
+# Inicializar logging (usará LOG_LEVEL de las variables cargadas)
+from nanu.core.logging import setup_logging
+setup_logging()
+
 from nanu.core.orchestrator import Orchestrator
 from nanu.core.channels.cli import CLIChannel
 

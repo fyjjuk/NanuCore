@@ -23,10 +23,15 @@ class OpenRouterClient(LLMClient):
         if not self.api_key:
             return False
         try:
+            # Intentar verificar la clave
             url = f"{self.base_url}/auth/key"
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=self.headers, timeout=5) as resp:
-                    return resp.status == 200
+                    if resp.status == 200:
+                        data = await resp.json()
+                        # Verificar que la clave tiene créditos o acceso
+                        return data.get('credits', 0) > 0 or data.get('access', False)
+                    return False
         except:
             return False
     
