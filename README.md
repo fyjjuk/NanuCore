@@ -28,20 +28,20 @@
 
 ## ✨ Características
 
-- **Multi-agente**: Soporta múltiples agentes especializados (Spotify, D&D, Dev Assistant)
-- **Canales concurrentes**: CLI interactivo + WebSocket nativo (más canales en desarrollo)
-- **Arquitectura modular**: Fácil extensión con skills y herramientas
-- **Seguridad multicapa**: Workspace sandbox, Gatekeeper humano, Ingress/Egress filters
+- **Multi-agente**: Agentes especializados (Spotify, D&D, Dev Assistant) con configuración YAML
+- **Canales concurrentes**: CLI interactivo + WebSocket nativo + Voz (Linux)
+- **Arquitectura modular**: Fácil extensión con skills, herramientas y hooks
+- **Seguridad multicapa**: Workspace sandbox, Gatekeeper humano, Credential Manager (AES-256-GCM)
 - **Memoria persistente**: JSONL append-only + búsqueda semántica con SQLite FTS5
-- **Caché inteligente**: Respuestas cacheadas con TTL configurable
-- **Sistema de hooks**: Pre/Post procesamiento, manejo de errores
-- **LLM asíncrono**: Soporte para Ollama (Gemini, Groq en progreso)
+- **Caché inteligente**: Respuestas cacheadas con TTL configurable y invalidación selectiva
+- **Sistema de hooks**: Pre/Post procesamiento, manejo de errores, filtros de entrada/salida
+- **LLM multi-proveedor**: Ollama (principal), Gemini y Groq con fallback y rotación de API keys
+- **RAG ligero**: Búsqueda semántica con SQLite FTS5 (sin dependencias externas)
 
 ---
 
 ## 🏗️ Arquitectura
 
-```
 NanuCore 3.0
 ├── nanu/core/              # Núcleo del sistema
 │   ├── agent.py            # Clase base Agent
@@ -51,21 +51,17 @@ NanuCore 3.0
 │   ├── memory/             # JSONLMemory, SQLiteVectorStore
 │   ├── security/           # Sandbox, Credential, Gatekeeper
 │   ├── routing/            # IntentRouter, ModelRouter
-│   ├── providers/          # LLM clients (Ollama)
+│   ├── providers/          # LLM clients (Ollama, Gemini, Groq)
 │   ├── tools/              # ToolRegistry, builtin tools
 │   ├── skills/             # SkillLoader
-│   └── channels/           # CLIChannel, WebSocketChannel
+│   └── channels/           # CLIChannel, WebSocketChannel, VoiceChannel
 ├── agents/                 # Agentes definidos por el usuario
-├── nanu/data/              # Datos persistentes (memoria, caché)
+├── nanu/data/              # Datos persistentes (memoria, caché, vectores)
 └── main.py                 # Punto de entrada con canales concurrentes
-```
 
 ### Flujo del Pipeline
 
-```
-Input → Pre-hooks → Sanitize → Ingress → Pre-route → IntentRouter → Post-route
-→ Gatekeeper → ModelRouter → Execute (Cognitive/Script) → Post-hooks → Egress → Output
-```
+Input → Pre-hooks → Sanitize → Ingress → Pre-route → IntentRouter → Post-route → Gatekeeper → ModelRouter → Execute (Cognitive/Script) → Post-hooks → Egress → Output
 
 ---
 
@@ -74,31 +70,38 @@ Input → Pre-hooks → Sanitize → Ingress → Pre-route → IntentRouter → 
 ### Requisitos previos
 
 - Python 3.11 o superior
-- Ollama (para LLM local) o API keys para otros proveedores
-- (Opcional) playerctl para control Spotify
+- Ollama (para LLM local) o API keys para Gemini/Groq
+- (Opcional) playerctl para control Spotify (Linux)
+- (Opcional) mpg123, arecord y edge-tts para asistente de voz (Linux)
 
 ### Pasos
 
-```bash
-# Clonar repositorio
 git clone https://github.com/fyjjuk/nanu-core.git
 cd nanu-core
 
-# Crear entorno virtual
 python3.11 -m venv venv
 source venv/bin/activate  # Linux/Mac
-# venv\Scripts\activate   # Windows
+# venv\\Scripts\\activate   # Windows
 
-# Instalar dependencias
 pip install -r requirements.txt
 
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tus API keys
+# (Opcional) Instalar dependencias extras para agentes de ejemplo
+# pip install -r requirements-extra.txt
 
-# Ejecutar
+cp .env.example .env
+# Editar .env con tus API keys y configuraciones
+
 python main.py
-```
+
+### Dependencias del sistema (Linux)
+
+Para el asistente de voz y control de Spotify:
+
+sudo pacman -S alsa-utils mpg123  # Arch Linux
+# sudo apt install alsa-utils mpg123  # Debian/Ubuntu
+
+sudo pacman -S playerctl  # Arch Linux
+# sudo apt install playerctl  # Debian/Ubuntu
 
 ---
 
@@ -106,21 +109,21 @@ python main.py
 
 ### CLI Interactivo
 
-```bash
 python main.py
-```
 
 Comandos disponibles:
 
-- `/help` - Muestra ayuda
-- `/exit`, `/quit`, `/salir` - Salir
-- `/agent list` - Listar agentes disponibles
-- `/agent switch <id>` - Cambiar de agente
-- `/clear` - Limpiar pantalla
+- /help - Muestra ayuda
+- /exit, /quit, /salir - Salir
+- /agent list - Listar agentes disponibles
+- /agent switch <id> - Cambiar de agente
+- /routes - Mostrar rutas del agente activo
+- /learn "original" "corregido" - Añadir corrección fonética
+- /list-corrections, /lc - Listar correcciones guardadas
+- /clear - Limpiar pantalla
 
 ### WebSocket
 
-```python
 import asyncio
 import websockets
 import json
@@ -134,7 +137,7 @@ async def test():
         print(f"Agentes: {response}")
 
         # Seleccionar agente
-        await ws.send(json.dumps({"type": "select_agent", "agent_id": "spotify_player"}))
+        await ws.send(json.dumps({"type": "select_agent", "agent_id": "spotify_spicetify"}))
         response = await ws.recv()
         print(f"Selección: {response}")
 
@@ -144,7 +147,6 @@ async def test():
         print(f"Respuesta: {response}")
 
 asyncio.run(test())
-```
 
 ---
 
@@ -152,34 +154,36 @@ asyncio.run(test())
 
 ### CLIChannel
 
-Canal interactivo por consola con autocompletado, historial y comandos slash.
+Canal interactivo por consola con autocompletado y comandos slash.
 
-```python
 from nanu.core.channels.cli import CLIChannel
 channel = CLIChannel(orchestrator)
 await channel.run()
-```
 
 ### WebSocketChannel
 
 Servidor WebSocket concurrente para integración con apps web.
 
-```python
 from nanu.core.channels.websocket import WebSocketChannel
 channel = WebSocketChannel(orchestrator, host="localhost", port=8765)
 await channel.start()  # Corre en segundo plano
-```
+
+### VoiceChannel (Linux)
+
+Canal de voz con hotkey Copilot (F23) y TTS.
+
+from nanu.core.channels.voice import VoiceChannel
+voice = VoiceChannel(agent)
+await voice.run()  # Presiona F23 para hablar
 
 ### Crear un canal personalizado
 
-```python
 from nanu.core.channels.base import Channel
 
 class MyChannel(Channel):
     async def run(self):
         # Implementar lógica del canal
         pass
-```
 
 ---
 
@@ -191,22 +195,20 @@ Los hooks permiten extender el pipeline sin modificar su código.
 
 | Hook | Momento | Parámetros |
 |---|---|---|
-| `pre_process` | Antes de sanitizar | `(input, context)` |
-| `pre_route` | Después de sanitizar, antes de enrutar | `(input, context)` |
-| `post_route` | Después de enrutar | `(route_id, input, context)` |
-| `post_process` | Después de generar respuesta | `(response, context)` |
-| `on_error` | Cuando ocurre una excepción | `(error, input, context)` |
+| pre_process | Antes de sanitizar | (input, context) |
+| pre_route | Después de sanitizar, antes de enrutar | (input, context) |
+| post_route | Después de enrutar | (route_id, input, context) |
+| post_process | Después de generar respuesta | (response, context) |
+| on_error | Cuando ocurre una excepción | (error, input, context) |
 
 ### Ejemplo
 
-```python
 async def log_hook(user_input: str, context: dict) -> str:
     print(f"Procesando: {user_input}")
     return user_input
 
 pipeline = Pipeline()
 pipeline.get_hook_manager().add_pre_hook(log_hook)
-```
 
 ---
 
@@ -216,32 +218,26 @@ pipeline.get_hook_manager().add_pre_hook(log_hook)
 
 Aísla las operaciones de archivo a un directorio específico.
 
-```python
 from nanu.core.security.sandbox import WorkspaceSandbox
 sandbox = WorkspaceSandbox("workspace/agent")
 sandbox.safe_write_text("file.txt", "content")  # Solo dentro del workspace
-```
 
 ### Gatekeeper
 
-Aprobación humana para operaciones sensibles.
+Aprobación humana para operaciones sensibles con caché por sesión.
 
-```yaml
 # En route.yaml
 gatekeeper_required: true
 gatekeeper_timeout: 30  # segundos
-```
 
 ### Credential Manager
 
 Cifrado de credenciales con AES-256-GCM.
 
-```python
 from nanu.core.security.credential import CredentialManager
-manager = CredentialManager.from_env()
+manager = CredentialManager.from_env()  # Usa NANU_CREDENTIAL_PASSPHRASE
 encrypted = manager.encrypt("api_key_123")
 decrypted = manager.decrypt(encrypted)
-```
 
 ---
 
@@ -249,7 +245,6 @@ decrypted = manager.decrypt(encrypted)
 
 ### Crear una Skill
 
-```yaml
 # nanu/skills/mi_skill/skill.yaml
 name: "Mi Skill"
 description: "Habilidades personalizadas"
@@ -257,9 +252,7 @@ version: "1.0.0"
 tools:
   - name: "mi_herramienta"
     class: "MiHerramienta"
-```
 
-```python
 # nanu/skills/mi_skill/tools/mi_herramienta.py
 from nanu.core.interfaces import Tool
 
@@ -271,56 +264,76 @@ class MiHerramienta(Tool):
     async def execute(self, args: dict, workspace=None) -> str:
         # Implementación
         return "Resultado"
-```
 
 ### Herramientas Builtin
 
-- `filesystem`: Operaciones de archivo con sandbox
-- `shell`: Comandos shell restringidos (deshabilitada por defecto)
+- filesystem: Operaciones de archivo con sandbox
+- shell: Comandos shell restringidos (deshabilitada por defecto)
 
 ---
 
 ## 📚 API de Agentes
 
-### Configuración de agente (`config.yaml`)
+### Configuración de agente (config.yaml)
 
-```yaml
 id: "mi_agente"
 name: "Mi Agente"
 description: "Descripción"
 workspace: "workspace/mi_agente"
 short_term_memory_window: 10
-execution_mode: "parallel"  # exclusive | parallel
-llm_provider:
-  name: "ollama"
-  model: "llama3.2:3b"
-  light_model: "phi3:mini"
-  heavy_model: "llama3.2:3b"
-  temperature: 0.7
-  max_tokens: 4096
+execution_mode: "exclusive"  # exclusive | parallel
+
+# LLM multi-proveedor con fallback
+llm:
+  providers:
+    - type: "ollama"
+      name: "ollama"
+      model: "phi3:mini"
+      host: "http://localhost:11434"
+      temperature: 0.7
+      max_tokens: 4096
+    - type: "gemini"
+      name: "gemini"
+      model: "gemini-2.0-flash-exp"
+      temperature: 0.7
+      max_tokens: 4096
+    - type: "groq"
+      name: "groq"
+      model: "llama-3.3-70b-versatile"
+      temperature: 0.7
+      max_tokens: 4096
+
 tools:
   native:
     - name: "filesystem"
       enabled: true
+    - name: "mi_herramienta"
+      script: "tools/mi_herramienta.py"
+      enabled: true
+
 cache:
   enabled: true
   ttl: 3600
+
 router_config:
   mode: "keyword"
   threshold: 0.2
-```
 
-### Definir rutas (`routes/*.yaml`)
+voice:
+  enabled: true
+  provider: edge
+  voice_id: "es-ES-ElviraNeural"
 
-```yaml
+### Definir rutas (routes/*.yaml)
+
 route_id: "mi_ruta"
 type: "script"  # o "cognitive"
 description: "palabra clave1, palabra clave2"
 script_path: "tools/mi_script.py"
 script_args:
   action: "ejecutar"
+  param: "{user_input}"
 gatekeeper_required: false
-```
 
 ---
 
@@ -328,25 +341,22 @@ gatekeeper_required: false
 
 ### Agente Spotify (funcional)
 
-```bash
 python main.py
-# Seleccionar Spotify Controller
+# Seleccionar "Spotify Spicetify"
 > play           # Reproducir
 > pause          # Pausar
 > next           # Siguiente
 > previous       # Anterior
 > status         # Estado
-> busca canción  # Buscar
-```
+> volumen 50     # Cambiar volumen
+> busca canción  # Buscar canción
 
 ### Agente D&D (en migración)
 
-```bash
 > crea un personaje llamado Gandalf clase Mago raza Elfo
 > muestra la ficha de Gandalf
 > añade poción al inventario de Gandalf
 > muestra el inventario de Gandalf
-```
 
 ---
 
@@ -359,32 +369,36 @@ python main.py
 - Routing inteligente (keyword + model router)
 - Herramientas builtin (filesystem, shell)
 - Sistema de Skills
-- Canales CLI y WebSocket
-- Caché en disco
-- Gatekeeper mejorado
+- Canales CLI, WebSocket y Voz
+- Caché en disco con invalidación selectiva
+- Gatekeeper mejorado con caché por sesión
 - EventBus y Hooks
+- Soporte multi-LLM (Ollama, Gemini, Groq)
+- Sistema de correcciones fonéticas
 
 ### En progreso 🚧
 
 - Pruebas unitarias
 - Migración completa de agentes (D&D, Dev Assistant)
 - Documentación Sphinx
+- Integración MCP
 
 ### Futuro 🔮
 
 - Canal Telegram
 - Canal Discord
-- MCP nativo
 - Dashboard web con WebSockets
+- Routing semántico con embeddings
+- Soporte multiplataforma para voz (Windows/macOS)
 
 ---
 
 ## 🤝 Contribuir
 
 1. Fork el repositorio
-2. Crear rama de feature (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit cambios (`git commit -m 'Añadir nueva funcionalidad'`)
-4. Push (`git push origin feature/nueva-funcionalidad`)
+2. Crear rama de feature (git checkout -b feature/nueva-funcionalidad)
+3. Commit cambios (git commit -m "Añadir nueva funcionalidad")
+4. Push (git push origin feature/nueva-funcionalidad)
 5. Abrir Pull Request
 
 ### Estilo de código
@@ -397,9 +411,9 @@ python main.py
 
 ## 📄 Licencia
 
-MIT License - ver [LICENSE](LICENSE)
+MIT License - ver LICENSE
 
 ## 🙏 Agradecimientos
 
-Inspirado en PicoClaw y su arquitectura modular.  
+Inspirado en PicoClaw y su arquitectura modular.
 Desarrollado con ❤️ por Fernando (ferdoNAN)

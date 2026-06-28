@@ -1,0 +1,20 @@
+# ============================================================
+# NanuCore 3.0 – Dependencias extras (agentes de ejemplo)
+# Instalar con: pip install -r requirements-extra.txt
+# ============================================================
+
+# ---------- Agente Dev Assistant ----------
+PyGithub>=2.0            # API de GitHub
+
+# ---------- Agente D&D ----------
+pandas>=2.0              # Manipulación de datos
+openpyxl>=3.1            # Lectura/escritura de Excel
+python-docx>=1.0         # Lectura de documentos Word
+beautifulsoup4>=4.12     # Web scraping
+lxml>=4.9                # Parser XML/HTML
+
+# ---------- Asistente de voz (Linux) ----------
+vosk>=0.3                # STT offline
+evdev>=1.6               # Captura de teclas
+edge-tts>=6.0            # TTS natural (requiere mpg123)
+
