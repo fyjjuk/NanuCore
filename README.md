@@ -19,6 +19,7 @@
 - [Seguridad](#-seguridad)
 - [Skills y Herramientas](#-skills-y-herramientas)
 - [API de Agentes](#-api-de-agentes)
+- [Configuración Avanzada](#-configuración-avanzada)
 - [Ejemplos](#-ejemplos)
 - [Roadmap](#-roadmap)
 - [Contribuir](#-contribuir)
@@ -33,9 +34,13 @@
 - **Arquitectura modular**: Fácil extensión con skills, herramientas y hooks
 - **Seguridad multicapa**: Workspace sandbox, Gatekeeper humano, Credential Manager (AES-256-GCM)
 - **Memoria persistente**: JSONL append-only + búsqueda semántica con SQLite FTS5
-- **Caché inteligente**: Respuestas cacheadas con TTL configurable y invalidación selectiva
+- **Caché inteligente**: Respuestas cacheadas con TTL configurable e invalidación selectiva por agente/ruta
 - **Sistema de hooks**: Pre/Post procesamiento, manejo de errores, filtros de entrada/salida
-- **LLM multi-proveedor**: Ollama (principal), Gemini y Groq con fallback y rotación de API keys
+- **LLM multi-proveedor**: Ollama (principal), Gemini, Groq, OpenRouter, Cerebras, Mistral con fallback y rotación
+- **Rate limiting inteligente**: Token bucket por proveedor LLM para evitar saturación de APIs
+- **STT bilingüe**: Faster-Whisper (inglés/español) + fallback a Vosk (solo español)
+- **Rotación automática de API keys**: Gemini soporta múltiples claves con cooldown por fallos/rate limit
+- **Auditoría persistente**: Gatekeeper con logs JSONL y caché de aprobación por sesión
 - **RAG ligero**: Búsqueda semántica con SQLite FTS5 (sin dependencias externas)
 
 ---
@@ -51,17 +56,17 @@ NanuCore 3.0
 │   ├── memory/             # JSONLMemory, SQLiteVectorStore
 │   ├── security/           # Sandbox, Credential, Gatekeeper
 │   ├── routing/            # IntentRouter, ModelRouter
-│   ├── providers/          # LLM clients (Ollama, Gemini, Groq)
+│   ├── providers/          # LLM clients (Ollama, Gemini, Groq, ...)
 │   ├── tools/              # ToolRegistry, builtin tools
 │   ├── skills/             # SkillLoader
 │   └── channels/           # CLIChannel, WebSocketChannel, VoiceChannel
 ├── agents/                 # Agentes definidos por el usuario
-├── nanu/data/              # Datos persistentes (memoria, caché, vectores)
+├── nanu/data/              # Datos persistentes (memoria, caché, vectores, auditoría)
 └── main.py                 # Punto de entrada con canales concurrentes
 
 ### Flujo del Pipeline
 
-Input → Pre-hooks → Sanitize → Ingress → Pre-route → IntentRouter → Post-route → Gatekeeper → ModelRouter → Execute (Cognitive/Script) → Post-hooks → Egress → Output
+Input → Pre-hooks → Corrección fonética → Sanitize → Ingress → Pre-route → IntentRouter → Post-route → Gatekeeper → ModelRouter → Execute (Cognitive/Script) → Post-hooks → Egress → Output
 
 ---
 
@@ -70,38 +75,31 @@ Input → Pre-hooks → Sanitize → Ingress → Pre-route → IntentRouter → 
 ### Requisitos previos
 
 - Python 3.11 o superior
-- Ollama (para LLM local) o API keys para Gemini/Groq
+- Ollama (para LLM local) o API keys para Gemini/Groq/OpenRouter/Cerebras/Mistral
 - (Opcional) playerctl para control Spotify (Linux)
 - (Opcional) mpg123, arecord y edge-tts para asistente de voz (Linux)
 
 ### Pasos
 
-git clone https://github.com/fyjjuk/nanu-core.git
-cd nanu-core
+git clone https://github.com/fyjjuk/NanuCore.git
+cd NanuCore
 
 python3.11 -m venv venv
 source venv/bin/activate  # Linux/Mac
-# venv\\Scripts\\activate   # Windows
 
 pip install -r requirements.txt
 
-# (Opcional) Instalar dependencias extras para agentes de ejemplo
-# pip install -r requirements-extra.txt
+pip install -r requirements-extra.txt
+
+pip install faster-whisper
 
 cp .env.example .env
-# Editar .env con tus API keys y configuraciones
 
 python main.py
 
 ### Dependencias del sistema (Linux)
 
-Para el asistente de voz y control de Spotify:
-
-sudo pacman -S alsa-utils mpg123  # Arch Linux
-# sudo apt install alsa-utils mpg123  # Debian/Ubuntu
-
-sudo pacman -S playerctl  # Arch Linux
-# sudo apt install playerctl  # Debian/Ubuntu
+sudo pacman -S alsa-utils mpg123 playerctl  # Arch Linux
 
 ---
 
@@ -113,14 +111,16 @@ python main.py
 
 Comandos disponibles:
 
-- /help - Muestra ayuda
-- /exit, /quit, /salir - Salir
-- /agent list - Listar agentes disponibles
-- /agent switch <id> - Cambiar de agente
-- /routes - Mostrar rutas del agente activo
-- /learn "original" "corregido" - Añadir corrección fonética
-- /list-corrections, /lc - Listar correcciones guardadas
-- /clear - Limpiar pantalla
+/help - Muestra ayuda
+/exit, /quit, /salir - Salir
+/agent list - Listar agentes disponibles
+/agent switch <id> - Cambiar de agente
+/agent info - Mostrar detalles del agente (LLM, proveedores)
+/routes - Mostrar rutas del agente activo
+/learn "original" "corregido" - Añadir corrección fonética
+/list-corrections, /lc - Listar correcciones guardadas
+/export-corrections, /ec - Exportar correcciones a archivo JSON
+/clear - Limpiar pantalla
 
 ### WebSocket
 
@@ -131,17 +131,14 @@ import json
 async def test():
     uri = "ws://localhost:8765"
     async with websockets.connect(uri) as ws:
-        # Listar agentes
         await ws.send(json.dumps({"type": "list_agents"}))
         response = await ws.recv()
         print(f"Agentes: {response}")
 
-        # Seleccionar agente
         await ws.send(json.dumps({"type": "select_agent", "agent_id": "spotify_spicetify"}))
         response = await ws.recv()
         print(f"Selección: {response}")
 
-        # Enviar mensaje
         await ws.send(json.dumps({"type": "message", "text": "estado"}))
         response = await ws.recv()
         print(f"Respuesta: {response}")
@@ -166,15 +163,15 @@ Servidor WebSocket concurrente para integración con apps web.
 
 from nanu.core.channels.websocket import WebSocketChannel
 channel = WebSocketChannel(orchestrator, host="localhost", port=8765)
-await channel.start()  # Corre en segundo plano
+await channel.start()
 
 ### VoiceChannel (Linux)
 
-Canal de voz con hotkey Copilot (F23) y TTS.
+Canal de voz con hotkey Copilot (F23) y TTS con edge-tts.
 
 from nanu.core.channels.voice import VoiceChannel
 voice = VoiceChannel(agent)
-await voice.run()  # Presiona F23 para hablar
+await voice.run()
 
 ### Crear un canal personalizado
 
@@ -182,7 +179,6 @@ from nanu.core.channels.base import Channel
 
 class MyChannel(Channel):
     async def run(self):
-        # Implementar lógica del canal
         pass
 
 ---
@@ -191,7 +187,7 @@ class MyChannel(Channel):
 
 Los hooks permiten extender el pipeline sin modificar su código.
 
-### Tipos de hooks
+Tipos de hooks:
 
 | Hook | Momento | Parámetros |
 |---|---|---|
@@ -216,26 +212,19 @@ pipeline.get_hook_manager().add_pre_hook(log_hook)
 
 ### Workspace Sandbox
 
-Aísla las operaciones de archivo a un directorio específico.
-
 from nanu.core.security.sandbox import WorkspaceSandbox
 sandbox = WorkspaceSandbox("workspace/agent")
-sandbox.safe_write_text("file.txt", "content")  # Solo dentro del workspace
+sandbox.safe_write_text("file.txt", "content")
 
 ### Gatekeeper
 
-Aprobación humana para operaciones sensibles con caché por sesión.
-
-# En route.yaml
 gatekeeper_required: true
-gatekeeper_timeout: 30  # segundos
+gatekeeper_timeout: 30
 
 ### Credential Manager
 
-Cifrado de credenciales con AES-256-GCM.
-
 from nanu.core.security.credential import CredentialManager
-manager = CredentialManager.from_env()  # Usa NANU_CREDENTIAL_PASSPHRASE
+manager = CredentialManager.from_env()
 encrypted = manager.encrypt("api_key_123")
 decrypted = manager.decrypt(encrypted)
 
@@ -245,7 +234,6 @@ decrypted = manager.decrypt(encrypted)
 
 ### Crear una Skill
 
-# nanu/skills/mi_skill/skill.yaml
 name: "Mi Skill"
 description: "Habilidades personalizadas"
 version: "1.0.0"
@@ -253,7 +241,6 @@ tools:
   - name: "mi_herramienta"
     class: "MiHerramienta"
 
-# nanu/skills/mi_skill/tools/mi_herramienta.py
 from nanu.core.interfaces import Tool
 
 class MiHerramienta(Tool):
@@ -262,7 +249,6 @@ class MiHerramienta(Tool):
     enabled = True
 
     async def execute(self, args: dict, workspace=None) -> str:
-        # Implementación
         return "Resultado"
 
 ### Herramientas Builtin
@@ -281,9 +267,8 @@ name: "Mi Agente"
 description: "Descripción"
 workspace: "workspace/mi_agente"
 short_term_memory_window: 10
-execution_mode: "exclusive"  # exclusive | parallel
+execution_mode: "exclusive"
 
-# LLM multi-proveedor con fallback
 llm:
   providers:
     - type: "ollama"
@@ -292,13 +277,17 @@ llm:
       host: "http://localhost:11434"
       temperature: 0.7
       max_tokens: 4096
+      rate_limit_max_requests: 5
+      rate_limit_per_seconds: 10
     - type: "gemini"
       name: "gemini"
+      priority: 1
       model: "gemini-2.0-flash-exp"
       temperature: 0.7
       max_tokens: 4096
     - type: "groq"
       name: "groq"
+      priority: 2
       model: "llama-3.3-70b-versatile"
       temperature: 0.7
       max_tokens: 4096
@@ -327,7 +316,7 @@ voice:
 ### Definir rutas (routes/*.yaml)
 
 route_id: "mi_ruta"
-type: "script"  # o "cognitive"
+type: "script"
 description: "palabra clave1, palabra clave2"
 script_path: "tools/mi_script.py"
 script_args:
@@ -337,21 +326,61 @@ gatekeeper_required: false
 
 ---
 
+## ⚙️ Configuración Avanzada
+
+### Múltiples API keys de Gemini
+
+GOOGLE_API_KEY_1=tu_primera_key
+GOOGLE_API_KEY_2=tu_segunda_key
+GOOGLE_API_KEY_3=tu_tercera_key
+
+Cooldown por defecto:
+- 429 (Rate limit): 60 segundos
+- 403 (Key inválida): 300 segundos
+- Timeout/Error de conexión: 30 segundos
+
+### STT con Faster-Whisper (bilingüe)
+
+pip install faster-whisper
+
+python -c "from faster_whisper import WhisperModel; print('OK')"
+
+### Rate limiting por proveedor LLM
+
+llm:
+  providers:
+    - type: "gemini"
+      rate_limit_max_requests: 5
+      rate_limit_per_seconds: 10
+
+### Invalidación selectiva de caché
+
+from nanu.core.cache import DiskCache
+cache = DiskCache()
+
+cache.invalidate()
+cache.invalidate(agent_id="spotify_spicetify")
+cache.invalidate(agent_id="spotify_spicetify", route_id="search")
+cache.invalidate(pattern="spotify_*")
+
+---
+
 ## 💡 Ejemplos
 
 ### Agente Spotify (funcional)
 
 python main.py
-# Seleccionar "Spotify Spicetify"
-> play           # Reproducir
-> pause          # Pausar
-> next           # Siguiente
-> previous       # Anterior
-> status         # Estado
-> volumen 50     # Cambiar volumen
-> busca canción  # Buscar canción
+> play
+> pause
+> next
+> previous
+> status
+> volumen 50
+> volumen 100
+> sube el volumen
+> busca canción
 
-### Agente D&D (en migración)
+### Agente D&D (ejemplo)
 
 > crea un personaje llamado Gandalf clase Mago raza Elfo
 > muestra la ficha de Gandalf
@@ -366,22 +395,26 @@ python main.py
 
 - Núcleo modular (interfaces, seguridad, memoria)
 - Agente y Orquestador
-- Routing inteligente (keyword + model router)
+- Routing inteligente (keyword + model router con coincidencia difusa)
 - Herramientas builtin (filesystem, shell)
 - Sistema de Skills
 - Canales CLI, WebSocket y Voz
 - Caché en disco con invalidación selectiva
-- Gatekeeper mejorado con caché por sesión
+- Gatekeeper mejorado con caché por sesión y auditoría persistente
 - EventBus y Hooks
-- Soporte multi-LLM (Ollama, Gemini, Groq)
+- Soporte multi-LLM (Ollama, Gemini, Groq, OpenRouter, Cerebras, Mistral)
+- Rate limiting por proveedor (token bucket)
+- Rotación automática de API keys con cooldown
 - Sistema de correcciones fonéticas
+- STT con Faster-Whisper (bilingüe) + fallback Vosk
+- Workspace sandbox con protección contra symlink attacks
+- Sanitización y filtrado de entrada/salida
 
 ### En progreso 🚧
 
-- Pruebas unitarias
-- Migración completa de agentes (D&D, Dev Assistant)
+- Pruebas unitarias completas
 - Documentación Sphinx
-- Integración MCP
+- Integración MCP (Model Context Protocol)
 
 ### Futuro 🔮
 
