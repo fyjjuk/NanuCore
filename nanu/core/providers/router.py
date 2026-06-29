@@ -19,6 +19,44 @@ from .models import get_model_by_id, ProviderModel
 logger = get_logger(__name__)
 
 
+class RateLimiter:
+    """Token bucket rate limiter para proveedores LLM."""
+    
+    def __init__(self, max_requests: int = 5, per_seconds: int = 10):
+        """
+        Inicializa el rate limiter.
+        max_requests: número máximo de requests permitidos en el periodo.
+        per_seconds: duración del periodo en segundos.
+        """
+        self.max_tokens = max_requests
+        self.per_seconds = per_seconds
+        self._tokens = max_requests
+        self._last_refill = time.time()
+        self._lock = asyncio.Lock()
+    
+    async def acquire(self) -> bool:
+        """
+        Intenta consumir un token. Retorna True si se consume, False si no hay tokens.
+        """
+        async with self._lock:
+            now = time.time()
+            elapsed = now - self._last_refill
+            # Refill tokens basado en el tiempo transcurrido
+            refill = elapsed / self.per_seconds * self.max_tokens
+            self._tokens = min(self.max_tokens, self._tokens + refill)
+            self._last_refill = now
+            
+            if self._tokens >= 1:
+                self._tokens -= 1
+                return True
+            return False
+    
+    async def reduce_tokens(self, count: int = 1) -> None:
+        """Reduce tokens adicionales (ej. cuando se recibe 429)."""
+        async with self._lock:
+            self._tokens = max(0, self._tokens - count)
+
+
 class LLMRouter:
     """Enruta solicitudes a múltiples proveedores LLM con prioridad y fallback."""
     
@@ -37,12 +75,13 @@ class LLMRouter:
         self.providers: List[LLMClient] = []
         self._provider_priority: Dict[str, int] = {}      # name -> priority (menor = mayor prioridad)
         self._provider_model_map: Dict[str, List[ProviderModel]] = {}
-        self._rate_limit_status: Dict[str, float] = {}    # name -> timestamp de expiración
+        self._rate_limit_status: Dict[str, float] = {}    # name -> timestamp de expiración (cooldown por 429)
         self._failure_count: Dict[str, int] = {}          # name -> fallos consecutivos
         self._availability_cache: Dict[str, tuple] = {}   # name -> (timestamp, disponible)
         self._cache_ttl: int = 30                         # segundos
         self._failure_threshold: int = 3                  # fallos consecutivos para marcar como no disponible
         self._lock = asyncio.Lock()
+        self._rate_limiters: Dict[str, RateLimiter] = {}  # name -> RateLimiter
         
         # Inicializar proveedores
         for cfg in providers_config:
@@ -67,6 +106,12 @@ class LLMRouter:
                     self._provider_model_map[client.name] = [model_info]
                 else:
                     self._provider_model_map[client.name] = []
+                
+                # Inicializar rate limiter por proveedor (configurable)
+                max_req = cfg.get('rate_limit_max_requests', 5)
+                per_sec = cfg.get('rate_limit_per_seconds', 10)
+                self._rate_limiters[client.name] = RateLimiter(max_req, per_sec)
+                logger.debug(f"Rate limiter para {client.name}: {max_req} requests cada {per_sec}s")
                     
             except Exception as e:
                 logger.error(f"Error inicializando {provider_type}: {e}")
@@ -78,20 +123,20 @@ class LLMRouter:
             logger.debug(f"  - {p.name} (prioridad: {self._provider_priority.get(p.name, 999)})")
     
     async def _is_rate_limited(self, provider_name: str) -> bool:
-        """Verifica si un proveedor está en rate limit."""
+        """Verifica si un proveedor está en rate limit por cooldown (429)."""
         if provider_name in self._rate_limit_status:
-            if asyncio.get_event_loop().time() < self._rate_limit_status[provider_name]: 
-                logger.debug(f"{provider_name} está rate limitado hasta {self._rate_limit_status[provider_name]}")
+            if asyncio.get_event_loop().time() < self._rate_limit_status[provider_name]:
+                logger.debug(f"{provider_name} está en cooldown hasta {self._rate_limit_status[provider_name]}")
                 return True
             else:
                 del self._rate_limit_status[provider_name]
-                logger.debug(f"{provider_name} ya no está rate limitado")
+                logger.debug(f"{provider_name} ya no está en cooldown")
         return False
     
     async def _set_rate_limited(self, provider_name: str, retry_after: int = 60):
-        """Marca un proveedor como rate limited."""
+        """Marca un proveedor como rate limited (cooldown por 429)."""
         self._rate_limit_status[provider_name] = asyncio.get_event_loop().time() + retry_after
-        logger.warning(f"{provider_name} rate limitado por {retry_after}s")
+        logger.warning(f"{provider_name} en cooldown por {retry_after}s")
     
     async def _is_provider_available(self, provider: LLMClient) -> bool:
         """Verifica disponibilidad de un proveedor con caché."""
@@ -116,7 +161,7 @@ class LLMRouter:
             return False
     
     async def _get_available_provider(self) -> Optional[LLMClient]:
-        """Obtiene el proveedor con mayor prioridad disponible."""
+        """Obtiene el proveedor con mayor prioridad disponible, respetando rate limiting."""
         async with self._lock:
             if not self.providers:
                 logger.error("No hay proveedores configurados")
@@ -127,15 +172,21 @@ class LLMRouter:
                 provider_name = provider.name
                 logger.debug(f"Evaluando {provider_name} (prioridad: {self._provider_priority.get(provider_name, 999)})")
                 
-                # Saltar si está rate limitado
+                # Saltar si está en cooldown (429)
                 if await self._is_rate_limited(provider_name):
-                    logger.debug(f"{provider_name} rate limitado, saltando")
+                    logger.debug(f"{provider_name} en cooldown, saltando")
                     continue
                 
                 # Saltar si ha tenido demasiados fallos consecutivos
                 failures = self._failure_count.get(provider_name, 0)
                 if failures >= self._failure_threshold:
                     logger.debug(f"{provider_name} tiene {failures} fallos consecutivos, saltando")
+                    continue
+                
+                # Verificar rate limiter (token bucket)
+                limiter = self._rate_limiters.get(provider_name)
+                if limiter and not await limiter.acquire():
+                    logger.debug(f"{provider_name} sin tokens disponibles, saltando")
                     continue
                 
                 # Verificar disponibilidad
@@ -155,15 +206,12 @@ class LLMRouter:
             if self._rate_limit_status:
                 wait_time = max(0, max(self._rate_limit_status.values()) - asyncio.get_event_loop().time())
                 if wait_time > 0:
-                    logger.warning(f"Todos los proveedores rate limitados. Esperando {wait_time:.1f}s...")
+                    logger.warning(f"Todos los proveedores en cooldown. Esperando {wait_time:.1f}s...")
                     await asyncio.sleep(wait_time + 1)
-                    # Reintentar sin rate limits
+                    # Reintentar sin cooldowns
                     for provider in self.providers:
                         if await self._is_provider_available(provider):
                             return provider
-            
-            # Si algún proveedor tiene fallos, resetear después de un tiempo
-            # (implementación simplificada)
             
             logger.error("No se encontró ningún proveedor disponible")
             return None
@@ -186,6 +234,10 @@ class LLMRouter:
                 if "Error:" in response and "rate limit" in response.lower():
                     logger.warning(f"Rate limit detectado en respuesta de {provider.name}, marcando...")
                     await self._set_rate_limited(provider.name, 60)
+                    # Reducir tokens adicionales
+                    limiter = self._rate_limiters.get(provider.name)
+                    if limiter:
+                        await limiter.reduce_tokens(2)
                     continue
                 return response
             except Exception as e:
@@ -196,6 +248,9 @@ class LLMRouter:
                 # Detectar rate limits
                 if "429" in error_msg or "rate limit" in error_msg.lower():
                     await self._set_rate_limited(provider.name, 60)
+                    limiter = self._rate_limiters.get(provider.name)
+                    if limiter:
+                        await limiter.reduce_tokens(2)
                 elif "404" in error_msg:
                     logger.warning(f"Modelo {provider.model} no disponible en {provider.name}")
                     await self._set_rate_limited(provider.name, 300)

@@ -25,6 +25,9 @@ os.dup2(_stderr_fd, 2)
 os.close(_stderr_fd)
 os.close(_devnull_fd)
 
+# Constantes de seguridad
+MAX_FRAMES = 150000       # ~37.5 segundos a 16kHz (4000 frames * 150000 / 16000 = 37.5s)
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
 class STTService:
     _instance = None
@@ -85,25 +88,59 @@ class STTService:
         print("✅ Modelo listo")
     
     def transcribe(self, audio_path: str) -> str:
+        """
+        Transcribe un archivo de audio con límites de seguridad:
+        - Límite de frames (evita DoS por archivos muy largos)
+        - Límite de tamaño de archivo (20 MB)
+        """
         self._init_model()
         if not self._model:
             return ""
         
-        wf = wave.open(audio_path, 'rb')
+        # Verificar tamaño del archivo
+        try:
+            file_size = os.path.getsize(audio_path)
+            if file_size > MAX_FILE_SIZE:
+                print(f"⚠️ Archivo demasiado grande: {file_size} bytes (límite: {MAX_FILE_SIZE})")
+                return ""
+        except Exception as e:
+            print(f"⚠️ Error verificando tamaño de archivo: {e}")
+            return ""
+        
+        try:
+            wf = wave.open(audio_path, 'rb')
+        except Exception as e:
+            print(f"⚠️ Error abriendo archivo de audio: {e}")
+            return ""
+        
         parts = []
+        frame_count = 0
         
-        while True:
-            data = wf.readframes(4000)
-            if not data:
-                break
-            if self._rec.AcceptWaveform(data):
-                res = json.loads(self._rec.Result())
-                if res.get('text'):
-                    parts.append(res['text'])
+        try:
+            while True:
+                data = wf.readframes(4000)
+                if not data:
+                    break
+                
+                # Límite de seguridad: máximo de frames
+                frame_count += 1
+                if frame_count > MAX_FRAMES:
+                    print(f"⚠️ Límite de frames excedido ({MAX_FRAMES}), truncando...")
+                    break
+                
+                if self._rec.AcceptWaveform(data):
+                    res = json.loads(self._rec.Result())
+                    if res.get('text'):
+                        parts.append(res['text'])
+        except Exception as e:
+            print(f"⚠️ Error durante transcripción: {e}")
         
-        final = json.loads(self._rec.FinalResult())
-        if final.get('text'):
-            parts.append(final['text'])
+        try:
+            final = json.loads(self._rec.FinalResult())
+            if final.get('text'):
+                parts.append(final['text'])
+        except Exception as e:
+            print(f"⚠️ Error obteniendo resultado final: {e}")
         
         wf.close()
         return ' '.join(parts).strip().lower()

@@ -6,6 +6,9 @@ import threading
 import time
 import atexit
 from .sanitizer import TTSSanitizer
+from nanu.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 class TTSService:
     _instance = None
@@ -23,8 +26,8 @@ class TTSService:
             return
         self._initialized = True
         self._sanitizer = TTSSanitizer()
-        # Asegurar que al salir se detenga cualquier reproducción
         atexit.register(self.stop)
+        logger.debug("TTSService inicializado")
     
     def stop(self):
         """Detiene la reproducción actual inmediatamente."""
@@ -33,22 +36,25 @@ class TTSService:
                 try:
                     self._current_process.terminate()
                     self._current_process.wait(timeout=1)
-                except:
-                    pass
+                    logger.debug("Reproducción TTS detenida")
+                except Exception as e:
+                    logger.error(f"Error deteniendo TTS: {e}")
                 finally:
                     self._current_process = None
     
     def speak(self, text: str, voice: str = "es-ES-ElviraNeural", async_mode: bool = True):
         """Sintetiza y reproduce texto, sanitizándolo previamente."""
         if not text or len(text.strip()) < 2:
+            logger.debug("Texto vacío o demasiado corto para TTS")
             return
         
-        # Sanitizar el texto antes de hablar
         clean_text = self._sanitizer.sanitize(text)
         if not clean_text:
+            logger.debug("Texto vacío después de sanitización")
             return
         
-        # Si hay reproducción en curso, detenerla (para evitar solapamiento)
+        logger.debug(f"TTS: '{clean_text[:50]}...'")
+        
         self.stop()
         
         if async_mode:
@@ -63,31 +69,35 @@ class TTSService:
             path = f.name
         
         try:
-            # Generar MP3
+            logger.debug(f"Generando TTS: {text[:30]}...")
             subprocess.run(
                 ["edge-tts", "--text", text, "--voice", voice, "--write-media", path],
                 capture_output=True, timeout=30, check=True
             )
-            # Reproducir con mpg123 y guardar proceso para poder detenerlo
+            logger.debug(f"Reproduciendo: {path}")
             with self._current_lock:
                 self._current_process = subprocess.Popen(
                     ["mpg123", "-q", path],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
-            # Esperar a que termine la reproducción (si no se interrumpe)
             if self._current_process:
                 self._current_process.wait()
                 with self._current_lock:
                     if self._current_process and self._current_process.poll() is not None:
                         self._current_process = None
+                        logger.debug("Reproducción TTS completada")
         except subprocess.CalledProcessError as e:
-            print(f"TTS error: {e}")
+            logger.error(f"TTS error (edge-tts): {e}")
+        except FileNotFoundError as e:
+            logger.error(f"TTS error: {e}. ¿Está instalado edge-tts o mpg123?")
         except Exception as e:
-            print(f"TTS error: {e}")
+            logger.error(f"TTS error: {e}")
         finally:
-            os.unlink(path)
-            # Asegurar que el proceso se limpie
+            try:
+                os.unlink(path)
+            except Exception as e:
+                logger.error(f"Error eliminando archivo temporal: {e}")
             with self._current_lock:
                 if self._current_process and self._current_process.poll() is not None:
                     self._current_process = None

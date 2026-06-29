@@ -3,10 +3,9 @@ import aiohttp
 import os
 from typing import Dict, Any, Optional
 from .base import LLMClient
+from nanu.core.utils.sanitize import sanitize_error
 
 class CerebrasClient(LLMClient):
-    """Cliente para Cerebras API (modelo Llama3.3 70B gratuito)."""
-    
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
         self.api_key = config.get('api_key') or os.environ.get('CEREBRAS_API_KEY')
@@ -17,7 +16,6 @@ class CerebrasClient(LLMClient):
         }
     
     async def available(self) -> bool:
-        """Verifica si la API key es válida."""
         if not self.api_key:
             return False
         try:
@@ -29,7 +27,6 @@ class CerebrasClient(LLMClient):
             return False
     
     async def generate(self, prompt: str, system_prompt: str = "", **kwargs) -> str:
-        """Genera una respuesta usando Cerebras."""
         if not self.api_key:
             return "Error: No se ha configurado CEREBRAS_API_KEY"
         
@@ -56,6 +53,7 @@ class CerebrasClient(LLMClient):
                         return "Error: Rate limit excedido (Cerebras). Espera un momento."
                     else:
                         error_text = await resp.text()
-                        return f"Error: Cerebras respondió con {resp.status}: {error_text[:100]}"
+                        sanitized = sanitize_error(error_text)
+                        return f"Error: Cerebras respondió con {resp.status}: {sanitized}"
         except Exception as e:
             return f"Error: {e}"

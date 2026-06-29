@@ -1,0 +1,24 @@
+id: "test_gemini"
+name: "Test Gemini"
+description: "Agente de prueba para verificar sanitización de errores en Gemini"
+workspace: "workspace/test_gemini"
+short_term_memory_window: 5
+execution_mode: "exclusive"
+llm:
+  providers:
+    - type: "gemini"
+      name: "gemini"
+      priority: 1
+      model: "gemini-2.0-flash-exp"
+      temperature: 0.7
+      max_tokens: 100
+      timeout: 10
+tools:
+  native: []
+router_config:
+  mode: "keyword"
+  threshold: 0.05
+cache:
+  enabled: false
+voice:
+  enabled: false

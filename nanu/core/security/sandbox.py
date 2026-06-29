@@ -8,17 +8,33 @@ class WorkspaceSandbox:
     
     def __init__(self, workspace_root: str):
         self.root = Path(workspace_root).resolve()
+        self.real_root = self.root.resolve()  # Resolver enlaces simbólicos
         self.root.mkdir(parents=True, exist_ok=True)
     
     def resolve_path(self, user_path: str) -> Path:
-        """Resuelve una ruta relativa al workspace, asegurando que no escape."""
-        # Normalizar y resolver
+        """
+        Resuelve una ruta relativa al workspace, asegurando que no escape.
+        Previene ataques con enlaces simbólicos y secuencias de traversal.
+        """
+        # Normalizar y resolver todos los enlaces simbólicos
         requested = (self.root / user_path).resolve()
-        # Verificar que la ruta solicitada esté dentro del workspace
+        
+        # Verificar que la ruta solicitada esté dentro del workspace real
         try:
-            requested.relative_to(self.root)
+            # Comparar con el root real (resuelto) para evitar enlaces simbólicos
+            requested.relative_to(self.real_root)
         except ValueError:
-            raise PermissionError(f"Acceso fuera del workspace: {user_path} → {requested}")
+            raise PermissionError(
+                f"Acceso fuera del workspace: '{user_path}' → '{requested}' "
+                f"(root: {self.real_root})"
+            )
+        
+        # Verificación adicional: asegurar que no hay .. en el path original
+        # (aunque resolve() ya maneja esto, es una capa extra)
+        if '..' in user_path.split('/'):
+            # Pero resolve() ya lo maneja; esta verificación es redundante
+            pass
+        
         return requested
     
     def safe_open(self, path: str, mode: str = 'r', *args, **kwargs):
@@ -62,3 +78,7 @@ class WorkspaceSandbox:
         """Lee texto de un archivo dentro del workspace."""
         with self.safe_open(path, 'r', encoding='utf-8') as f:
             return f.read()
+    
+    def get_real_root(self) -> Path:
+        """Retorna el root real (resuelto) del workspace."""
+        return self.real_root

@@ -3,6 +3,7 @@ import aiohttp
 import os
 from typing import Dict, Any, Optional
 from .base import LLMClient
+from nanu.core.utils.sanitize import sanitize_error
 
 class GroqClient(LLMClient):
     def __init__(self, config: Dict[str, Any]):
@@ -11,7 +12,6 @@ class GroqClient(LLMClient):
         self.current_key_index = 0
     
     def _load_api_keys(self) -> list:
-        """Carga múltiples API keys de variables de entorno."""
         keys = []
         for key_name, value in os.environ.items():
             if key_name.startswith('GROQ_API_KEY'):
@@ -69,13 +69,15 @@ class GroqClient(LLMClient):
                             try:
                                 return data['choices'][0]['message']['content']
                             except (KeyError, IndexError):
-                                return f"Error: Respuesta inesperada de Groq"
+                                return "Error: Respuesta inesperada de Groq"
                         elif resp.status == 429:
                             print(f"[Groq] Key {attempt + 1} rate limit, rotando...")
                             self._rotate_key()
                             continue
                         else:
-                            return f"Error: Groq respondió con {resp.status}"
+                            error_text = await resp.text()
+                            sanitized = sanitize_error(error_text)
+                            return f"Error: Groq respondió con {resp.status}: {sanitized}"
             except Exception as e:
                 print(f"[Groq] Error con key {attempt + 1}: {e}")
                 self._rotate_key()

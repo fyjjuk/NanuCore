@@ -1,91 +1,257 @@
+# ============================================================
 # Modelos disponibles por proveedor
 # Este archivo permite personalizar qué modelos usar sin modificar código
+# ============================================================
 
 providers:
+  # ---------- LOCALES (Ollama) ----------
   ollama:
     default: "phi3:mini"
+    description: "Modelos locales ejecutados con Ollama"
     models:
+      # Modelos pequeños (rápidos, para tareas simples)
       - id: "phi3:mini"
         display: "Phi3 Mini"
         context: 8192
         free: true
+        category: "small"
+        tags: ["rápido", "ligero", "general"]
+      
       - id: "qwen2.5:0.5b"
         display: "Qwen2.5 0.5B"
         context: 8192
         free: true
+        category: "small"
+        tags: ["rápido", "muy ligero", "general"]
+      
+      - id: "gemma4:e4b"
+        display: "Gemma 4 E4B"
+        context: 8192
+        free: true
+        category: "small"
+        tags: ["rápido", "google", "general"]
+      
+      # Modelos medianos (balance)
       - id: "llama3.2:3b"
         display: "Llama3.2 3B"
         context: 8192
         free: true
+        category: "medium"
+        tags: ["balance", "meta", "general"]
+      
+      - id: "qwen2.5-coder:7b"
+        display: "Qwen2.5 Coder 7B"
+        context: 8192
+        free: true
+        category: "medium"
+        tags: ["balance", "programación", "código"]
+      
+      # Modelos grandes (potentes)
+      - id: "deepseek-r1:7b"
+        display: "DeepSeek R1 7B"
+        context: 16384
+        free: true
+        category: "large"
+        tags: ["potente", "razonamiento", "deepseek"]
+      
+      - id: "llama3.3:70b"
+        display: "Llama3.3 70B"
+        context: 8192
+        free: true
+        category: "large"
+        tags: ["potente", "meta", "general"]
 
+  # ---------- GOOGLE GEMINI ----------
   gemini:
     default: "gemini-2.0-flash-exp"
+    description: "Modelos de Google Gemini (API gratuita con límites)"
     models:
       - id: "gemini-2.0-flash-exp"
         display: "Gemini 2.0 Flash Exp"
         context: 8192
         free: true
+        category: "flash"
+        tags: ["rápido", "experimental", "google"]
+      
       - id: "gemini-1.5-flash"
         display: "Gemini 1.5 Flash"
         context: 8192
         free: true
+        category: "flash"
+        tags: ["rápido", "estable", "google"]
+      
+      - id: "gemini-1.5-pro"
+        display: "Gemini 1.5 Pro"
+        context: 8192
+        free: false
+        category: "pro"
+        tags: ["potente", "premium", "google"]
 
+  # ---------- GROQ ----------
   groq:
     default: "llama-3.3-70b-versatile"
+    description: "Inferencia ultrarrápida con Groq"
     models:
       - id: "llama-3.3-70b-versatile"
         display: "Llama3.3 70B Versatile"
         context: 8192
         free: true
+        category: "large"
+        tags: ["rápido", "potente", "meta", "groq"]
+      
       - id: "llama3-8b-8192"
         display: "Llama3 8B"
         context: 8192
         free: true
+        category: "medium"
+        tags: ["rápido", "meta", "groq"]
+      
       - id: "mixtral-8x7b-32768"
         display: "Mixtral 8x7B"
         context: 32768
         free: true
-
-  openrouter:
-    default: "meta-llama/llama-3.3-70b-instruct"
-    models:
-      - id: "meta-llama/llama-3.3-70b-instruct"
-        display: "Llama3.3 70B"
+        category: "large"
+        tags: ["contexto largo", "mistral", "groq"]
+      
+      - id: "gemma2-9b-it"
+        display: "Gemma2 9B"
         context: 8192
         free: true
+        category: "medium"
+        tags: ["google", "groq", "general"]
+
+  # ---------- OPENROUTER ----------
+  openrouter:
+    default: "meta-llama/llama-3.3-70b-instruct"
+    description: "Agregador de modelos con 25+ opciones"
+    models:
+      - id: "meta-llama/llama-3.3-70b-instruct"
+        display: "Llama3.3 70B Instruct"
+        context: 8192
+        free: true
+        category: "large"
+        tags: ["potente", "meta", "instruct"]
+      
       - id: "google/gemini-2.0-flash-exp"
         display: "Gemini 2.0 Flash Exp"
         context: 8192
         free: true
+        category: "flash"
+        tags: ["rápido", "google", "experimental"]
+      
       - id: "microsoft/phi-3.5-mini-128k-instruct"
         display: "Phi3.5 Mini"
         context: 8192
         free: true
+        category: "small"
+        tags: ["rápido", "microsoft", "instruct"]
+      
+      - id: "deepseek/deepseek-chat"
+        display: "DeepSeek Chat"
+        context: 8192
+        free: true
+        category: "medium"
+        tags: ["deepseek", "chat", "general"]
+      
+      - id: "mistralai/mistral-7b-instruct"
+        display: "Mistral 7B Instruct"
+        context: 8192
+        free: true
+        category: "medium"
+        tags: ["mistral", "instruct", "general"]
 
+  # ---------- CEREBRAS ----------
   cerebras:
     default: "llama3.3-70b"
+    description: "Cerebras Inference (hardware especializado)"
     models:
       - id: "llama3.3-70b"
         display: "Llama3.3 70B"
         context: 8192
         free: true
+        category: "large"
+        tags: ["potente", "meta", "cerebras"]
 
+  # ---------- MISTRAL AI ----------
   mistral:
     default: "mistral-small-latest"
+    description: "Modelos europeos de alto rendimiento"
     models:
       - id: "mistral-small-latest"
         display: "Mistral Small"
         context: 8192
         free: true
+        category: "small"
+        tags: ["rápido", "europeo", "general"]
+      
+      - id: "mistral-medium-latest"
+        display: "Mistral Medium"
+        context: 8192
+        free: false
+        category: "medium"
+        tags: ["potente", "europeo", "general"]
 
+  # ---------- HUGGING FACE ----------
   huggingface:
     default: "meta-llama/Llama-3.2-3B-Instruct"
+    description: "Inference API de Hugging Face"
     models:
       - id: "meta-llama/Llama-3.2-3B-Instruct"
-        display: "Llama3.2 3B"
+        display: "Llama3.2 3B Instruct"
         context: 8192
         free: true
+        category: "small"
+        tags: ["rápido", "meta", "instruct"]
+      
       - id: "microsoft/Phi-3.5-mini-instruct"
-        display: "Phi3.5 Mini"
+        display: "Phi3.5 Mini Instruct"
         context: 8192
         free: true
+        category: "small"
+        tags: ["rápido", "microsoft", "instruct"]
+
+# ============================================================
+# CATEGORÍAS DE MODELOS
+# ============================================================
+categories:
+  small:
+    description: "Modelos pequeños y rápidos (ideal para tareas simples y respuestas rápidas)"
+    use_case: "Chat simple, extracción de datos, comandos básicos"
+  
+  medium:
+    description: "Modelos de tamaño medio (balance entre velocidad y calidad)"
+    use_case: "Conversaciones generales, tareas de razonamiento moderado"
+  
+  large:
+    description: "Modelos grandes y potentes (mejor calidad, mayor latencia)"
+    use_case: "Razonamiento complejo, generación de código, análisis profundo"
+  
+  flash:
+    description: "Modelos optimizados para velocidad (respuestas casi instantáneas)"
+    use_case: "Chat rápido, comandos de voz, interacciones en tiempo real"
+  
+  pro:
+    description: "Modelos premium (requieren suscripción o pago)"
+    use_case: "Tareas de alta calidad, producción empresarial"
+
+# ============================================================
+# RECOMENDACIONES POR CASO DE USO
+# ============================================================
+recommendations:
+  # Para comandos simples y extracción
+  extraction: "ollama/qwen2.5:0.5b"
+  
+  # Para chat rápido (voz/CLI)
+  chat_fast: "gemini/gemini-2.0-flash-exp"
+  
+  # Para razonamiento general
+  general: "groq/llama-3.3-70b-versatile"
+  
+  # Para programación
+  coding: "ollama/qwen2.5-coder:7b"
+  
+  # Para tareas complejas
+  complex: "openrouter/meta-llama/llama-3.3-70b-instruct"
+  
+  # Para contexto largo
+  long_context: "groq/mixtral-8x7b-32768"

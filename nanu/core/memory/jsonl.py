@@ -3,9 +3,15 @@ import json
 import os
 import tempfile
 import shutil
+import fcntl
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+
+from nanu.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class JSONLMemory:
     """Memoria persistente usando archivos JSONL (una línea por mensaje)."""
@@ -21,30 +27,30 @@ class JSONLMemory:
         return self.data_dir / f"{safe_key}.jsonl"
     
     async def add(self, session_key: str, turn: Dict[str, Any]) -> None:
-        """Añade un turno (mensaje) a la sesión de forma atómica."""
+        """
+        Añade un turno (mensaje) a la sesión de forma atómica con bloqueo.
+        Usa fcntl.flock para evitar race conditions en escritura concurrente.
+        """
         file_path = self._get_session_file(session_key)
+        
         # Añadir timestamp si no existe
         if "timestamp" not in turn:
             turn["timestamp"] = datetime.now().isoformat()
         
-        # Escritura atómica: escribir a temporal y luego renombrar
         line = json.dumps(turn, ensure_ascii=False) + "\n"
         
-        # Usar directorio temporal en el mismo sistema de archivos
-        temp_dir = self.data_dir / ".tmp"
-        temp_dir.mkdir(exist_ok=True)
-        with tempfile.NamedTemporaryFile(mode='w', dir=temp_dir, delete=False, encoding='utf-8') as tmp:
-            tmp.write(line)
-            tmp_path = tmp.name
-        
-        # Si el archivo ya existe, añadir al final (no usar rename porque perderíamos datos)
-        # En su lugar, abrir en modo append con bloqueo (simplificado)
-        # Para evitar race conditions, usamos un lock basado en archivo (opcional)
-        # Por simplicidad, abrimos en modo 'a' y escribimos.
-        # En un sistema real, se puede usar fcntl.flock o una librería de locks.
-        with open(file_path, 'a', encoding='utf-8') as f:
-            f.write(line)
-        os.unlink(tmp_path)  # eliminar temporal
+        # Escribir con bloqueo exclusivo
+        try:
+            # Abrir en modo append con bloqueo
+            with open(file_path, 'a', encoding='utf-8') as f:
+                # Adquirir bloqueo exclusivo
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                f.write(line)
+                f.flush()  # Forzar escritura en disco
+                # Liberar bloqueo (se libera automáticamente al cerrar)
+        except Exception as e:
+            logger.error(f"Error escribiendo en {file_path}: {e}")
+            raise
     
     async def get_history(self, session_key: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Lee las últimas `limit` líneas de la sesión."""
@@ -53,27 +59,41 @@ class JSONLMemory:
             return []
         
         turns = []
-        with open(file_path, 'r', encoding='utf-8') as f:
-            # Leer todas las líneas, pero mantener solo las últimas `limit`
-            lines = f.readlines()
-            for line in lines[-limit:]:
-                try:
-                    turn = json.loads(line.strip())
-                    turns.append(turn)
-                except json.JSONDecodeError:
-                    continue
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                # Adquirir bloqueo compartido para lectura
+                fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+                # Leer todas las líneas
+                lines = f.readlines()
+                for line in lines[-limit:]:
+                    try:
+                        turn = json.loads(line.strip())
+                        turns.append(turn)
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            logger.error(f"Error leyendo {file_path}: {e}")
+            return []
+        
         return turns
     
     async def clear(self, session_key: str) -> None:
         """Elimina el archivo de la sesión."""
         file_path = self._get_session_file(session_key)
         if file_path.exists():
-            file_path.unlink()
+            try:
+                file_path.unlink()
+                logger.debug(f"Sesión eliminada: {session_key}")
+            except Exception as e:
+                logger.error(f"Error eliminando {file_path}: {e}")
     
     async def list_sessions(self) -> List[str]:
         """Lista todas las claves de sesión existentes."""
         sessions = []
         for p in self.data_dir.glob("*.jsonl"):
-            # Reconstruir clave original (no sanitizada, pero aproximada)
             sessions.append(p.stem)
         return sessions
+    
+    async def get_history_all(self, session_key: str) -> List[Dict[str, Any]]:
+        """Lee todo el historial de una sesión."""
+        return await self.get_history(session_key, limit=999999)
