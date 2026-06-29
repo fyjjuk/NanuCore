@@ -1,4 +1,5 @@
 """Cliente para Google Gemini con soporte para múltiples API keys y cooldown."""
+import asyncio
 import aiohttp
 import os
 import time
