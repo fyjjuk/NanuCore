@@ -115,6 +115,7 @@ class Gatekeeper:
             return cached
         
         timeout = route_config.get("gatekeeper_timeout", self.default_timeout)
+        logger.debug(f"Solicitando aprobación humana para ruta '{route_id}' (timeout: {timeout}s)")
         
         # Solicitar aprobación humana
         if self.ui:
@@ -133,8 +134,10 @@ class Gatekeeper:
                 timeout=timeout
             )
             user_input = user_input.strip().upper()
+            logger.debug(f"Respuesta del usuario: {user_input}")
         except asyncio.TimeoutError:
             user_input = None
+            logger.warning(f"Timeout esperando aprobación para ruta '{route_id}'")
         
         if user_input == 'Y':
             approved = True

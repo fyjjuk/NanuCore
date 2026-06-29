@@ -14,7 +14,9 @@ beautifulsoup4>=4.12     # Web scraping
 lxml>=4.9                # Parser XML/HTML
 
 # ---------- Asistente de voz (Linux) ----------
-vosk>=0.3                # STT offline
+vosk>=0.3                # STT offline (fallback)
 evdev>=1.6               # Captura de teclas
 edge-tts>=6.0            # TTS natural (requiere mpg123)
 
+# ---------- STT avanzado (recomendado) ----------
+faster-whisper>=1.0.0    # STT bilingüe (inglés/español), más preciso y rápido
