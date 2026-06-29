@@ -1,6 +1,6 @@
 route_id: "search"
 type: "script"
-description: "buscar,busca,reproduce,pon,toca"
+description: "buscar,busca,reproduce,reproducir,pon,toca,encuentra,localiza,quiero escuchar,dame,ponme,busca la canción,reproduce la canción"
 script_path: "tools/search_track.py"
 script_args:
   query: "{user_input}"

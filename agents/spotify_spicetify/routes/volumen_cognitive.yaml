@@ -1,6 +1,6 @@
 route_id: "volumen_cognitive"
 type: "cognitive"
-description: "subir volumen,bajar volumen,cambiar volumen,poner volumen,aumentar volumen,disminuir volumen"
+description: "subir volumen,bajar volumen,cambiar volumen,poner volumen,aumentar volumen,disminuir volumen,volumen a,poner volumen a,sube el volumen,baja el volumen"
 system_prompt: |
   Eres un extractor de números. Analiza la frase y responde EXACTAMENTE con:
   <tool_call>set_volume value="NUMERO"</tool_call>

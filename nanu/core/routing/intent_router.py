@@ -9,7 +9,7 @@ from nanu.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Stopwords en español (palabras muy comunes que no aportan significado)
+# Stopwords en español
 STOPWORDS = {
     'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas',
     'de', 'en', 'por', 'para', 'con', 'sin', 'sobre', 'entre',
@@ -23,15 +23,10 @@ STOPWORDS = {
 }
 
 def normalize_text(text: str) -> str:
-    """
-    Normaliza el texto: minúsculas, elimina acentos y caracteres especiales.
-    """
-    # Convertir a minúsculas
+    """Normaliza el texto: minúsculas, elimina acentos y caracteres especiales."""
     text = text.lower()
-    # Eliminar acentos
     text = unicodedata.normalize('NFKD', text)
     text = ''.join(c for c in text if not unicodedata.combining(c))
-    # Reemplazar caracteres especiales por espacios
     text = re.sub(r'[^a-z0-9\s]', ' ', text)
     return text
 
@@ -49,7 +44,6 @@ class IntentRouter:
         if not user_lower:
             return None
         
-        # Normalizar input para coincidencia
         normalized_input = normalize_text(user_lower)
         input_words = normalized_input.split()
         input_words_no_stop = remove_stopwords(input_words)
@@ -72,7 +66,6 @@ class IntentRouter:
                 if not desc:
                     continue
                 
-                # Normalizar descripción
                 normalized_desc = normalize_text(desc)
                 desc_words = normalized_desc.split()
                 desc_words_no_stop = remove_stopwords(desc_words)
@@ -80,36 +73,32 @@ class IntentRouter:
                 if not desc_words_no_stop or not input_words_no_stop:
                     continue
                 
-                # 1. Coincidencia exacta de palabras (método original mejorado)
-                # Palabras del input que están en la descripción
+                # 1. Coincidencia exacta de palabras
                 matches = 0
                 for word in input_words_no_stop:
                     if word in desc_words_no_stop:
                         matches += 1
                 
-                # Si hay coincidencias exactas, calcular score básico
-                if matches > 0:
-                    base_score = matches / max(len(desc_words_no_stop), 1)
-                else:
-                    base_score = 0.0
+                # **NUEVO: Si no hay coincidencia exacta, ignorar esta ruta (evita falsos positivos)**
+                if matches == 0:
+                    continue
                 
-                # 2. Coincidencia difusa con frases completas (captura errores tipográficos)
+                base_score = matches / max(len(desc_words_no_stop), 1)
+                
+                # 2. Coincidencia difusa con frases completas
                 fuzzy_score = calculate_fuzzy_score(normalized_input, normalized_desc)
                 
-                # 3. Coincidencia de frases exactas (cuando el input contiene la descripción)
+                # 3. Coincidencia de frases exactas
                 phrase_score = 0.0
                 if normalized_desc in normalized_input:
-                    # Si la descripción completa está contenida, alta puntuación
                     phrase_score = 1.0
                 elif normalized_desc in user_lower:
                     phrase_score = 0.8
                 
-                # Combinar scores con pesos
-                # Peso: 40% coincidencia exacta, 30% fuzzy, 30% frase exacta
-                combined_score = (0.4 * base_score) + (0.3 * fuzzy_score) + (0.3 * phrase_score)
+                # Combinar scores (pesos ajustados: más peso a coincidencias exactas)
+                combined_score = (0.5 * base_score) + (0.2 * fuzzy_score) + (0.3 * phrase_score)
                 
-                # Ajuste por longitud de palabras clave: si hay más palabras en la descripción,
-                # es más específica, pero penalizar si el input es muy corto
+                # Ajustes por longitud
                 if len(desc_words_no_stop) > 5 and len(input_words_no_stop) < 3:
                     combined_score *= 0.8
                 elif len(desc_words_no_stop) <= 2 and len(input_words_no_stop) >= 3:
@@ -123,7 +112,6 @@ class IntentRouter:
                     best_score = combined_score
                     best_route = route
         
-        # Verificar si la mejor puntuación supera el umbral
         if best_route and best_score >= threshold:
             logger.debug(f"Ruta seleccionada: {best_route['route_id']} (score={best_score:.3f})")
             return best_route

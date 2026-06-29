@@ -1,6 +1,6 @@
 route_id: "volumen"
 type: "cognitive"
-description: "volumen,subir volumen,bajar volumen,poner volumen,cambiar volumen,aumentar volumen,disminuir volumen,volumen al"
+description: "volumen,subir volumen,bajar volumen,poner volumen,cambiar volumen,aumentar volumen,disminuir volumen,volumen al,volumen 100,volumen a,poner volumen a"
 system_prompt: |
   Eres un asistente que interpreta comandos de volumen.
   Responde EXACTAMENTE con:
