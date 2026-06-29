@@ -86,3 +86,4 @@ nanu/data/cache/
 nanu/data/sessions/
 nanu/data/vectors.db
 .repomix
+.env
