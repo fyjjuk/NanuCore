@@ -87,3 +87,21 @@ nanu/data/sessions/
 nanu/data/vectors.db
 .repomix
 .env
+data/corrections/
+
+# Archivos generados por el sistema
+data/corrections/
+
+# Archivos de logs de herramientas
+repomix-output.xml
+ferdonan-repomix.md
+ferdonan_export.txt
+repomix.config.json
+
+# Archivos de sesiones y caché (ya los tienes, pero por si acaso)
+nanu/data/sessions/
+nanu/data/cache/
+nanu/data/vectors.db
+
+# Directorios de agentes en desarrollo (opcional)
+# agents/*/workspace/
