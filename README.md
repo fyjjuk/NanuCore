@@ -26,10 +26,10 @@ Su principal caso de uso es el control por voz de aplicaciones locales (Spotify,
 | Voz | STT con Faster-Whisper (bilingüe) y TTS con edge-tts. |
 | Multi-agente | Varios agentes especializados (Spotify, D&D, Dev Assistant) con configuración YAML. |
 | Canales | CLI interactivo, WebSocket y voz (Linux). |
-| Seguridad | Sandbox de archivos, Gatekeeper humano, cifrado de credenciales y auditoría. |
+| Seguridad | Sandbox de archivos, Gatekeeper humano, cifrado de credenciales y auditoría persistente. |
 | Memoria | Historial persistente en JSONL y búsqueda semántica con SQLite FTS5. |
-| Caché | Respuestas cacheadas con invalidación selectiva. |
-| LLM | Soporte para múltiples proveedores (Ollama, Gemini, Groq, etc.) con rotación de API keys. |
+| Caché | Respuestas cacheadas con invalidación selectiva por agente/ruta. |
+| LLM | Soporte para múltiples proveedores (Ollama, Gemini, Groq, etc.) con rotación de API keys, cooldown y rate limiting por proveedor. |
 | Extensible | Hooks, habilidades (skills), herramientas nativas y canales personalizados. |
 
 ---
@@ -71,13 +71,17 @@ Si el agente tiene voice.enabled: true, presiona la tecla Copilot (F23) para hab
 
 Comandos de voz soportados:
 
-"play"          Reproducir
-"pause"         Pausar
-"next"          Siguiente canción
-"previous"      Canción anterior
-"status"        Mostrar canción actual
-"busca [nombre]"Buscar y reproducir
-"volumen 50"    Cambiar volumen
+| Comando | Acción |
+|---------|--------|
+| "play" | Reproducir |
+| "pause" | Pausar |
+| "next" | Siguiente canción |
+| "previous" | Canción anterior |
+| "status" | Mostrar canción actual |
+| "busca [nombre]" | Buscar y reproducir |
+| "volumen 50" | Cambiar volumen |
+| "volumen 100" | Volumen al máximo |
+| "sube el volumen" | Subir 10% |
 
 ---
 
@@ -89,7 +93,7 @@ NanuCore/
 │   ├── test_agent/          # Agente de pruebas
 │   └── ...
 ├── config/                  # Catálogos de modelos (models.yaml)
-├── data/                    # Datos persistentes
+├── data/                    # Datos persistentes (incluye auditoría en nanu/data/audit/)
 ├── docs/                    # Documentación
 ├── examples/                # Agentes de ejemplo
 ├── nanu/                    # Núcleo del framework
@@ -103,7 +107,7 @@ NanuCore/
 │   │   ├── security/        # Sandbox, CredentialManager, Gatekeeper
 │   │   ├── skills/          # SkillLoader
 │   │   ├── tools/           # ToolRegistry, herramientas builtin
-│   │   ├── utils/           # Utilidades (sanitización)
+│   │   ├── utils/           # Utilidades (sanitización de errores)
 │   │   ├── agent.py         # Clase base Agent
 │   │   ├── cache.py         # Caché con invalidación selectiva
 │   │   ├── interfaces.py    # Interfaces para extensibilidad
@@ -185,6 +189,7 @@ pipeline.get_hook_manager().add_pre_hook(mi_hook)
 - Voz: Solo funciona en Linux (por dependencias arecord, evdev y mpg123).
 - Rendimiento: Modelos locales en CPU tienen latencia; se recomienda GPU.
 - Compatibilidad: El control de Spotify requiere la aplicación de escritorio abierta.
+- Enrutamiento: El router usa coincidencia de palabras clave, por lo que frases muy parafraseadas pueden no ser detectadas (mejorable con embeddings).
 
 ---
 
@@ -207,9 +212,12 @@ Inspirado en la necesidad de un asistente local rápido y controlable. Desarroll
 | ✅ | Núcleo modular (seguridad, memoria, routing) |
 | ✅ | Agentes con configuración YAML y herramientas |
 | ✅ | Canales CLI, WebSocket y Voz (Linux) |
-| ✅ | Soporte multi-LLM (Ollama, Gemini, Groq) |
+| ✅ | Soporte multi-LLM (Ollama, Gemini, Groq, OpenRouter, Cerebras, Mistral) |
+| ✅ | STT bilingüe con Faster-Whisper + fallback Vosk |
+| ✅ | Rate limiting por proveedor LLM (token bucket) |
+| ✅ | Rotación de API keys con cooldown |
 | ✅ | Caché e invalidación selectiva |
-| ✅ | Gatekeeper humano y auditoría |
+| ✅ | Gatekeeper humano y auditoría persistente |
 | ⚠️ | Pruebas unitarias (en progreso) |
 | 🔜 | Integración MCP |
 | 🔜 | Canal Telegram |
